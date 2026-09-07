@@ -17,8 +17,12 @@ import { markRaw, readonly, ref, shallowRef } from 'vue'
 import type { DeepReadonly, Ref } from 'vue'
 import { getWallets, isWalletWithRequiredFeatureSet } from '@mysten/wallet-standard'
 import type { Wallet, WalletAccount } from '@mysten/wallet-standard'
-import { SuiJsonRpcClient } from '@mysten/sui/jsonRpc'
+import { SuiGrpcClient } from '@mysten/sui/grpc'
+import { fromBase64 } from '@mysten/sui/utils'
 import type { Transaction } from '@mysten/sui/transactions'
+
+/** Sui networks the gRPC client accepts as a label. */
+type SuiNetwork = 'mainnet' | 'testnet' | 'devnet' | 'localnet'
 
 // ── singleton reactive state ────────────────────────────────────────────────────────────
 const wallets = shallowRef<Wallet[]>([])
@@ -33,13 +37,15 @@ const error = ref<string | null>(null)
 const requiredFeatures = new Set<string>(['standard:connect'])
 
 // ── Sui client cache (keyed by network + url so a URL change is not silently ignored) ─────
-const clients = new Map<string, SuiJsonRpcClient>()
-/** Return a memoised {@link SuiJsonRpcClient} for the network + RPC URL (one instance each). */
-export function getSuiClient(network: string, rpcUrl: string): SuiJsonRpcClient {
+// gRPC client (JSON-RPC is deprecated SDK-wide). `rpcUrl` is a gRPC-web endpoint, e.g.
+// https://fullnode.testnet.sui.io:443 — the default GrpcWebFetchTransport works in the browser.
+const clients = new Map<string, SuiGrpcClient>()
+/** Return a memoised {@link SuiGrpcClient} for the network + gRPC-web URL (one instance each). */
+export function getSuiClient(network: string, rpcUrl: string): SuiGrpcClient {
   const key = `${network}|${rpcUrl}`
   let c = clients.get(key)
   if (!c) {
-    c = new SuiJsonRpcClient({ url: rpcUrl, network })
+    c = new SuiGrpcClient({ network: network as SuiNetwork, baseUrl: rpcUrl })
     clients.set(key, c)
   }
   return c
@@ -145,15 +151,18 @@ export async function buildExecutor(network: string, rpcUrl: string): Promise<Ex
         account: acct,
         chain,
       })
-      const res = await client.executeTransactionBlock({
-        transactionBlock: bytes,
-        signature,
-        options: { showEffects: true },
+      // gRPC core execution: the signed transaction bytes (base64 from the wallet) + signatures.
+      // The result is a discriminated union — a successfully-submitted tx (even one that aborts
+      // on-chain) carries its digest under Transaction/FailedTransaction.
+      const res = await client.core.executeTransaction({
+        transaction: fromBase64(bytes),
+        signatures: [signature],
       })
-      return { digest: res.digest }
+      const executed = res.$kind === 'Transaction' ? res.Transaction : res.FailedTransaction
+      return { digest: executed.digest }
     },
     async waitForTransaction(digest: string): Promise<unknown> {
-      return client.waitForTransaction({ digest })
+      return client.core.waitForTransaction({ digest })
     },
   }
 }

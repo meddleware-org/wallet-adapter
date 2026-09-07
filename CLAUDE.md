@@ -6,6 +6,18 @@ A shared Sui wallet adapter for Meddleware Vue 3 apps. It wraps `@mysten/wallet-
 (dapp-kit is React-only) in a **module-singleton** composable exposing reactive connection
 state plus `connect` / `disconnect` / `signPersonalMessage` / `buildExecutor` / `getSuiClient`.
 
+## gRPC, not JSON-RPC
+
+`getSuiClient` returns a `SuiGrpcClient` (`@mysten/sui/grpc`) and `buildExecutor` executes via
+`client.core.executeTransaction` + `client.core.waitForTransaction`. JSON-RPC (`SuiJsonRpcClient`)
+is deprecated SDK-wide, so it is not used here. Consequences:
+
+- **`rpcUrl` is a gRPC-web endpoint**, e.g. `https://fullnode.testnet.sui.io:443` — the default
+  `GrpcWebFetchTransport` works in the browser. Do NOT pass a JSON-RPC-only endpoint.
+- **Requires `@mysten/sui >= 2.28`** (the `/grpc` export does not exist earlier) — hence the peer
+  range. Consumers passing `getSuiClient`'s client into data libraries must use libraries that
+  read via the unified `.core` API (`ClientWithCoreApi`), not JSON-RPC method shapes.
+
 It exists to let multiple tool views (`walrus-ui`, `access-gate-ui`, `seal-ui`) share **one**
 wallet connection when rendered inline in a single window (the dashboard). Before this package,
 each app had its own near-identical `wallet.ts` singleton; three of them in one page meant three
