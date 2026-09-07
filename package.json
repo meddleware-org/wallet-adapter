@@ -1,6 +1,6 @@
 {
   "name": "@meddleware/wallet-adapter",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Shared Sui wallet adapter for Meddleware Vue 3 apps: a module-singleton wallet-standard composable (connect/disconnect, personal-message signing, transaction executor) so multiple tool views can share one wallet connection.",
   "author": "Meddleware <dev@meddleware.co.uk>",
   "license": "0BSD",
@@ -9,7 +9,7 @@
     "url": "git+https://github.com/meddleware-org/wallet-adapter.git"
   },
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": ["*.vue"],
   "exports": {
     ".": {
       "types": "./src/index.ts",

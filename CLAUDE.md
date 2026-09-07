@@ -9,17 +9,17 @@ state plus `connect` / `disconnect` / `signPersonalMessage` / `buildExecutor` / 
 ## gRPC, not JSON-RPC
 
 `getSuiClient` returns a `SuiGrpcClient` (`@mysten/sui/grpc`) and `buildExecutor` executes via
-`client.core.executeTransaction` + `client.core.waitForTransaction`. JSON-RPC (`SuiJsonRpcClient`)
+top-level `client.executeTransaction` + `client.waitForTransaction`. JSON-RPC (`SuiJsonRpcClient`)
 is deprecated SDK-wide, so it is not used here. Consequences:
 
 - **`rpcUrl` is a gRPC-web endpoint**, e.g. `https://fullnode.testnet.sui.io:443` — the default
   `GrpcWebFetchTransport` works in the browser. Do NOT pass a JSON-RPC-only endpoint.
 - **Requires `@mysten/sui >= 2.28`** (the `/grpc` export does not exist earlier) — hence the peer
   range. Consumers passing `getSuiClient`'s client into data libraries must use libraries that
-  read via the unified `.core` API (`ClientWithCoreApi`), not JSON-RPC method shapes.
+  accept a `SuiGrpcClient`, not JSON-RPC method shapes.
 
 It exists to let multiple tool views (`walrus-ui`, `access-gate-ui`, `seal-ui`) share **one**
-wallet connection when rendered inline in a single window (the dashboard). Before this package,
+wallet connection when rendered inline in a single window (the dashboard). Before this package
 each app had its own near-identical `wallet.ts` singleton; three of them in one page meant three
 separate connections.
 
@@ -44,15 +44,15 @@ separate connections.
 
 `buildExecutor` returns `{ address, signAndExecute(tx), waitForTransaction(digest) }`. `address`
 is included unconditionally (superset of the three original per-app variants). It executes the
-signed transaction bytes through a `SuiJsonRpcClient` so the returned effects are controlled.
+signed transaction bytes via `SuiGrpcClient` (`client.executeTransaction` /
+`client.waitForTransaction`) so the returned effects are controlled.
 
 ## Peer dependencies
 
-Broad ranges on purpose (`@mysten/sui >=2.17 <3`, `@mysten/wallet-standard >=0.19 <1`) so
-consumers on either the older (2.17/0.19) or newer (2.28/0.20) mysten lines can adopt it without
-a peer conflict. The APIs used (`getWallets`, `isWalletWithRequiredFeatureSet`,
-`SuiJsonRpcClient`, `executeTransactionBlock`, `waitForTransaction`, feature casting) are stable
-across those ranges.
+Pinned to `@mysten/sui >=2.28 <3` and `@mysten/wallet-standard >=0.20 <1` — the `/grpc` subpath
+export and top-level `executeTransaction` / `waitForTransaction` are not available before 2.28.
+The APIs used (`getWallets`, `isWalletWithRequiredFeatureSet`, `SuiGrpcClient`, `executeTransaction`,
+`waitForTransaction`, feature casting) are stable across that range.
 
 ## What NOT to do
 

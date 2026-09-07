@@ -10,9 +10,9 @@
 // env). The chain id is derived as `sui:<network>`.
 //
 // NOTE: the signing paths can only be exercised with a real wallet extension in a browser;
-// they are intentionally thin and execute via a JSON-RPC client so we control the returned
-// effects. Feature availability is guarded at call time, so a wallet missing an optional
-// feature fails that specific operation rather than being excluded from discovery.
+// they are intentionally thin and execute via gRPC (SuiGrpcClient). Feature availability
+// is guarded at call time, so a wallet missing an optional feature fails that specific
+// operation rather than being excluded from discovery.
 import { markRaw, readonly, ref, shallowRef } from 'vue'
 import type { DeepReadonly, Ref } from 'vue'
 import { getWallets, isWalletWithRequiredFeatureSet } from '@mysten/wallet-standard'
@@ -154,7 +154,7 @@ export async function buildExecutor(network: string, rpcUrl: string): Promise<Ex
       // gRPC core execution: the signed transaction bytes (base64 from the wallet) + signatures.
       // The result is a discriminated union — a successfully-submitted tx (even one that aborts
       // on-chain) carries its digest under Transaction/FailedTransaction.
-      const res = await client.core.executeTransaction({
+      const res = await client.executeTransaction({
         transaction: fromBase64(bytes),
         signatures: [signature],
       })
@@ -162,7 +162,7 @@ export async function buildExecutor(network: string, rpcUrl: string): Promise<Ex
       return { digest: executed.digest }
     },
     async waitForTransaction(digest: string): Promise<unknown> {
-      return client.core.waitForTransaction({ digest })
+      return client.waitForTransaction({ digest })
     },
   }
 }
