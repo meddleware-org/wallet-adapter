@@ -7,6 +7,9 @@
 export { useWallet, getSuiClient, buildExecutor } from './wallet.js'
 export type { Executor, WalletState, UseWalletOptions } from './wallet.js'
 
+export { useNetwork } from './network.js'
+export type { MwNetwork } from './network.js'
+
 export { default as WalletSelector } from './WalletSelector.vue'
 export { default as WalletGuard } from './WalletGuard.vue'
 export { default as WalletModal } from './WalletModal.vue'
