@@ -9,3 +9,4 @@ export type { Executor, WalletState, UseWalletOptions } from './wallet.js'
 
 export { default as WalletSelector } from './WalletSelector.vue'
 export { default as WalletGuard } from './WalletGuard.vue'
+export { default as WalletModal } from './WalletModal.vue'

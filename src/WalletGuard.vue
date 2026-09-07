@@ -1,31 +1,25 @@
 <script setup lang="ts">
 // Renders its default slot when a wallet is connected; otherwise shows a centered splash with
-// a WalletSelector so the user can choose which extension to connect.
+// a single "Connect wallet" button that opens the WalletModal dialog.
 // Uses the module-singleton useWallet() so connecting here reflects in every other tool view.
-import type { Wallet } from '@mysten/wallet-standard'
 import { useWallet } from './wallet.js'
-import WalletSelector from './WalletSelector.vue'
+import WalletModal from './WalletModal.vue'
 
 withDefaults(defineProps<{
-  /** Explanation shown above the wallet picker when not connected. */
+  /** Explanation shown above the connect button when not connected. */
   message?: string
 }>(), {
   message: 'Connect a Sui wallet to continue.',
 })
 
-const { wallets, account, connect, connecting } = useWallet()
-
-async function onSelect(w: Wallet): Promise<void> {
-  await connect(w)
-}
+const { account } = useWallet()
 </script>
 
 <template>
   <slot v-if="account" />
   <div v-else class="wg-splash">
     <p class="wg-message">{{ message }}</p>
-    <WalletSelector :wallets="wallets" @select="onSelect" />
-    <p v-if="connecting" class="wg-status">Connecting…</p>
+    <WalletModal />
   </div>
 </template>
 
@@ -35,7 +29,7 @@ async function onSelect(w: Wallet): Promise<void> {
   flex-direction: column;
   align-items: center;
   gap: 1.25rem;
-  max-width: 360px;
+  max-width: 320px;
   width: 100%;
   margin: 5rem auto;
   padding: 2rem;
@@ -48,11 +42,5 @@ async function onSelect(w: Wallet): Promise<void> {
   color: var(--muted, #888);
   margin: 0;
   font-size: 0.95rem;
-}
-
-.wg-status {
-  color: var(--muted, #888);
-  font-size: 0.875rem;
-  margin: 0;
 }
 </style>
