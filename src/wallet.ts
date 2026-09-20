@@ -24,6 +24,14 @@ import type { Transaction } from '@mysten/sui/transactions'
 /** Sui networks the gRPC client accepts as a label. */
 type SuiNetwork = 'mainnet' | 'testnet' | 'devnet' | 'localnet'
 
+/** Allow https:// and http://localhost / http://127.0.0.1 for local dev. */
+function isAllowedGrpcUrl(url: string): boolean {
+  try {
+    const u = new URL(url)
+    return u.protocol === 'https:' || u.hostname === 'localhost' || u.hostname === '127.0.0.1'
+  } catch { return false }
+}
+
 // ── singleton reactive state ────────────────────────────────────────────────────────────
 const wallets = shallowRef<Wallet[]>([])
 const currentWallet = shallowRef<Wallet | null>(null)
@@ -42,6 +50,11 @@ const requiredFeatures = new Set<string>(['standard:connect'])
 const clients = new Map<string, SuiGrpcClient>()
 /** Return a memoised {@link SuiGrpcClient} for the network + gRPC-web URL (one instance each). */
 export function getSuiClient(network: string, rpcUrl: string): SuiGrpcClient {
+  if (!isAllowedGrpcUrl(rpcUrl)) {
+    throw new Error(
+      `getSuiClient: rpcUrl must use https:// (or http://localhost / http://127.0.0.1 for local dev). Got: ${rpcUrl}`,
+    )
+  }
   const key = `${network}|${rpcUrl}`
   let c = clients.get(key)
   if (!c) {
@@ -116,6 +129,34 @@ async function signPersonalMessage(message: Uint8Array): Promise<{ signature: st
   return { signature }
 }
 
+/**
+ * Structural shape of a `client.executeTransaction` result: a discriminated union where
+ * `Transaction` is a successful execution and `FailedTransaction` is a submitted tx that failed
+ * on-chain (abort, insufficient gas, etc.). The real SDK type satisfies this subset.
+ */
+export interface ExecuteTransactionLike {
+  $kind: string
+  Transaction?: { digest: string }
+  FailedTransaction?: { digest: string }
+}
+
+/**
+ * Extract the digest from an execute result, THROWING on `FailedTransaction`. Without this a caller
+ * would treat an on-chain failure as success (both branches carry a digest), so failed submissions
+ * must be surfaced, not swallowed.
+ */
+export function digestFromExecuteResult(res: ExecuteTransactionLike): { digest: string } {
+  if (res.$kind === 'FailedTransaction') {
+    throw new Error(
+      `Transaction ${res.FailedTransaction?.digest ?? '(unknown)'} failed on-chain (aborted or rejected during execution).`,
+    )
+  }
+  if (!res.Transaction) {
+    throw new Error(`unexpected execution result kind: ${res.$kind}`)
+  }
+  return { digest: res.Transaction.digest }
+}
+
 /** Transaction executor bound to the connected wallet: sign+execute a PTB and await finality. */
 export interface Executor {
   /** The connected account address the executor signs with. */
@@ -152,14 +193,11 @@ export async function buildExecutor(network: string, rpcUrl: string): Promise<Ex
         chain,
       })
       // gRPC core execution: the signed transaction bytes (base64 from the wallet) + signatures.
-      // The result is a discriminated union — a successfully-submitted tx (even one that aborts
-      // on-chain) carries its digest under Transaction/FailedTransaction.
       const res = await client.executeTransaction({
         transaction: fromBase64(bytes),
         signatures: [signature],
       })
-      const executed = res.$kind === 'Transaction' ? res.Transaction : res.FailedTransaction
-      return { digest: executed.digest }
+      return digestFromExecuteResult(res)
     },
     async waitForTransaction(digest: string): Promise<unknown> {
       return client.waitForTransaction({ digest })

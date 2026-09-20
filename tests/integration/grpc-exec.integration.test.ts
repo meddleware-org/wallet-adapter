@@ -47,14 +47,19 @@ describe.skipIf(!RUN)('gRPC execution-path (real full node)', () => {
     const bytes = await tx.build({ client })
     const { signature } = await keypair.signTransaction(bytes)
 
-    // The exact core calls buildExecutor makes (bytes here are already a Uint8Array; the wallet
-    // path base64-decodes, hence fromBase64 in buildExecutor).
+    // Exercise the EXACT top-level calls buildExecutor makes (client.executeTransaction /
+    // client.waitForTransaction), not the `client.core.*` variants — otherwise this test would pass
+    // while the production path silently diverged. (bytes here are already a Uint8Array; the wallet
+    // path base64-decodes, hence fromBase64 in buildExecutor.)
     void fromBase64 // referenced to document the wallet-path decode; keypair path passes bytes directly
-    const res = await client.core.executeTransaction({ transaction: bytes, signatures: [signature] })
-    const executed = res.$kind === 'Transaction' ? res.Transaction : res.FailedTransaction
+    const res = await client.executeTransaction({ transaction: bytes, signatures: [signature] })
+    if (res.$kind === 'FailedTransaction') {
+      throw new Error(`self-transfer failed on-chain: ${res.FailedTransaction.digest}`)
+    }
+    const executed = res.Transaction
     expect(executed.digest).toMatch(/^[1-9A-HJ-NP-Za-km-z]+$/) // base58 digest
 
-    const waited = await client.core.waitForTransaction({ digest: executed.digest })
+    const waited = await client.waitForTransaction({ digest: executed.digest })
     const waitedTx = waited.$kind === 'Transaction' ? waited.Transaction : waited.FailedTransaction
     expect(waitedTx.digest).toBe(executed.digest)
   })

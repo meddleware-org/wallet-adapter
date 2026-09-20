@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { useWallet, getSuiClient, buildExecutor } from '../src/wallet.js'
+import { useWallet, getSuiClient, buildExecutor, digestFromExecuteResult } from '../src/wallet.js'
 
 // The connect / sign paths require a real wallet extension injecting into `window`
 // (wallet-standard's registry is window-based). Those are exercised manually in a browser.
@@ -46,5 +46,22 @@ describe('operation guards before connect', () => {
 
   it('buildExecutor (standalone export) rejects when no wallet is connected', async () => {
     await expect(buildExecutor('testnet', 'https://rpc.example')).rejects.toThrow(/connect a wallet first/i)
+  })
+})
+
+describe('digestFromExecuteResult (failed-tx surfacing)', () => {
+  it('returns the digest for a successful Transaction', () => {
+    const res = { $kind: 'Transaction', Transaction: { digest: '0xabc' } }
+    expect(digestFromExecuteResult(res)).toEqual({ digest: '0xabc' })
+  })
+
+  it('throws on a FailedTransaction instead of returning its digest', () => {
+    const res = { $kind: 'FailedTransaction', FailedTransaction: { digest: '0xdead' } }
+    expect(() => digestFromExecuteResult(res)).toThrow(/0xdead/)
+    expect(() => digestFromExecuteResult(res)).toThrow(/failed on-chain/i)
+  })
+
+  it('throws on an unexpected kind with no Transaction payload', () => {
+    expect(() => digestFromExecuteResult({ $kind: 'Weird' })).toThrow(/unexpected execution result/i)
   })
 })

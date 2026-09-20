@@ -3,6 +3,13 @@
 // in the same window — the same module singleton pattern as wallet.ts.
 import { computed, readonly, ref } from 'vue'
 
+function isLocalUrl(url: string): boolean {
+  try {
+    const u = new URL(url)
+    return u.protocol === 'http:' && (u.hostname === 'localhost' || u.hostname === '127.0.0.1')
+  } catch { return false }
+}
+
 export type MwNetwork = 'testnet' | 'mainnet' | 'localnet'
 
 const DEFAULT_RPC: Record<Exclude<MwNetwork, 'localnet'>, string> = {
@@ -19,7 +26,8 @@ function loadNetwork(): MwNetwork {
 }
 
 function loadLocalnetRpc(): string {
-  return (typeof localStorage !== 'undefined' && localStorage.getItem(LS_LOCAL)) || DEFAULT_LOCALNET_RPC
+  const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(LS_LOCAL) : null
+  return (stored && isLocalUrl(stored)) ? stored : DEFAULT_LOCALNET_RPC
 }
 
 // ── singleton refs ──────────────────────────────────────────────────────────────────────
@@ -37,6 +45,11 @@ export function useNetwork() {
   }
 
   function setLocalnetRpc(url: string): void {
+    if (!isLocalUrl(url)) {
+      throw new Error(
+        `setLocalnetRpc: localnet RPC must be http://localhost or http://127.0.0.1. Got: ${url}`,
+      )
+    }
     _localnetRpc.value = url
     if (typeof localStorage !== 'undefined') localStorage.setItem(LS_LOCAL, url)
   }

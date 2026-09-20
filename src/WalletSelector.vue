@@ -8,22 +8,21 @@ const emit = defineEmits<{ select: [wallet: Wallet] }>()
 </script>
 
 <template>
-  <div class="ws-list" role="list">
-    <button
-      v-for="w in wallets"
-      :key="w.name"
-      type="button"
-      class="ws-option"
-      role="listitem"
-      @click="emit('select', w)"
-    >
-      <img v-if="w.icon" :src="(w.icon as string)" :alt="w.name" class="ws-icon" aria-hidden="true" />
-      <span>{{ w.name }}</span>
-    </button>
+  <ul class="ws-list">
+    <li v-for="w in wallets" :key="w.name" class="ws-item">
+      <button
+        type="button"
+        class="ws-option"
+        @click="emit('select', w)"
+      >
+        <img v-if="w.icon" :src="(w.icon as string)" :alt="w.name" class="ws-icon" aria-hidden="true" />
+        <span>{{ w.name }}</span>
+      </button>
+    </li>
     <p v-if="!wallets.length" class="ws-empty">
       No Sui wallet detected. Install a wallet extension to continue.
     </p>
-  </div>
+  </ul>
 </template>
 
 <style scoped>
@@ -32,6 +31,13 @@ const emit = defineEmits<{ select: [wallet: Wallet] }>()
   flex-direction: column;
   gap: 0.5rem;
   width: 100%;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ws-item {
+  display: contents;
 }
 
 .ws-option {
