@@ -72,7 +72,7 @@ async function onSelect(w: Wallet): Promise<void> {
   margin: auto;
   width: min(360px, 90vw);
   padding: 0;
-  background: var(--surface-raised, #1e1e2e);
+  background: var(--surface, #1c1618);
   border: 1px solid var(--border, #333);
   border-radius: 14px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
