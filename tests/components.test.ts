@@ -10,6 +10,11 @@ import WalletSelector from '../src/WalletSelector.vue'
 import WalletModal from '../src/WalletModal.vue'
 
 expect.extend(axeMatchers)
+
+// jsdom has no canvas: axe-core probes getContext() during some checks, and jsdom logs
+// "Not implemented" before returning null. Return null up front — the same result axe already
+// gets — so the noise goes away without changing what is tested.
+HTMLCanvasElement.prototype.getContext = (() => null) as typeof HTMLCanvasElement.prototype.getContext
 const opts = { rules: { region: { enabled: false } } }
 
 // The prebuilt @meddleware/ui dist does not render under these jsdom tests (separate Vue copy);
