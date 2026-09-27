@@ -58,7 +58,7 @@ const emit = defineEmits<{ select: [wallet: Wallet] }>()
 
 .ws-option:hover {
   border-color: var(--accent, #6366f1);
-  background: var(--surface-hover, rgba(99, 102, 241, 0.08));
+  background: var(--surface-hover, rgb(99 102 241 / 8%));
 }
 
 .ws-icon {

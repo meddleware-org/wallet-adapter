@@ -31,6 +31,7 @@ async function onSelect(w: Wallet): Promise<void> {
   </button>
 
   <Teleport to="body">
+    <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions, vuejs-accessibility/click-events-have-key-events -- native <dialog> closes on Escape (@cancel); @click.self only dismisses on backdrop click -->
     <dialog ref="dialogRef" class="wm-dialog" @click.self="hide" @cancel.prevent="hide">
       <div class="wm-panel">
         <div class="wm-header">
@@ -75,12 +76,12 @@ async function onSelect(w: Wallet): Promise<void> {
   background: var(--surface, #1c1618);
   border: 1px solid var(--border, #333);
   border-radius: 14px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 60px rgb(0 0 0 / 50%);
   color: var(--text, #f0f0f0);
 }
 
 .wm-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.55);
+  background: rgb(0 0 0 / 55%);
   backdrop-filter: blur(2px);
 }
 
