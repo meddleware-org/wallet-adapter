@@ -10,7 +10,7 @@ connection.
 npm install @meddleware/wallet-adapter
 ```
 
-Peer deps: `@mysten/sui`, `@mysten/wallet-standard`, `vue`.
+Peer deps: `@mysten/sui`, `@mysten/wallet-standard`, `vue`, `@meddleware/ui` (used by `WalletModal` for its dialog).
 
 ## Usage
 

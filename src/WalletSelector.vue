@@ -8,21 +8,18 @@ const emit = defineEmits<{ select: [wallet: Wallet] }>()
 </script>
 
 <template>
-  <ul class="ws-list">
-    <li v-for="w in wallets" :key="w.name" class="ws-item">
-      <button
-        type="button"
-        class="ws-option"
-        @click="emit('select', w)"
-      >
-        <img v-if="w.icon" :src="(w.icon as string)" :alt="w.name" class="ws-icon" aria-hidden="true" />
-        <span>{{ w.name }}</span>
+  <!-- A list of commands (one per wallet) — or, when none are installed, a single message. -->
+  <menu v-if="wallets.length" class="ws-list">
+    <li v-for="w in wallets" :key="w.name">
+      <button type="button" class="ws-option" @click="emit('select', w)">
+        <img v-if="w.icon" :src="(w.icon as string)" alt="" class="ws-icon" />
+        {{ w.name }}
       </button>
     </li>
-    <p v-if="!wallets.length" class="ws-empty">
-      No Sui wallet detected. Install a wallet extension to continue.
-    </p>
-  </ul>
+  </menu>
+  <p v-else class="ws-empty">
+    No Sui wallet detected. Install a wallet extension to continue.
+  </p>
 </template>
 
 <style scoped>
@@ -34,10 +31,6 @@ const emit = defineEmits<{ select: [wallet: Wallet] }>()
   list-style: none;
   padding: 0;
   margin: 0;
-}
-
-.ws-item {
-  display: contents;
 }
 
 .ws-option {

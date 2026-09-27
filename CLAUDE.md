@@ -54,6 +54,14 @@ export and top-level `executeTransaction` / `waitForTransaction` are not availab
 The APIs used (`getWallets`, `isWalletWithRequiredFeatureSet`, `SuiGrpcClient`, `executeTransaction`,
 `waitForTransaction`, feature casting) are stable across that range.
 
+## UI dependency
+
+`WalletModal` renders its picker in `@meddleware/ui`'s `UiDialog` (native `<dialog>`; Escape /
+backdrop dismissal without interactive handlers on the dialog element), so `@meddleware/ui` is a
+**peer dependency** — every consuming app already provides it. There is no dependency in the other
+direction. `WalletSelector` renders the wallets as a `<menu>` of buttons (a list of commands), or a
+single `<p>` when none are installed.
+
 ## What NOT to do
 
 - Do not read env / hardcode RPC URLs — pass them in.
