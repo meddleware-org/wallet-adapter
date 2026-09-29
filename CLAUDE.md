@@ -14,8 +14,8 @@ is deprecated SDK-wide, so it is not used here. Consequences:
 
 - **`rpcUrl` is a gRPC-web endpoint**, e.g. `https://fullnode.testnet.sui.io:443` — the default
   `GrpcWebFetchTransport` works in the browser. Do NOT pass a JSON-RPC-only endpoint.
-- **Requires `@mysten/sui >= 2.28`** (the `/grpc` export does not exist earlier) — hence the peer
-  range. Consumers passing `getSuiClient`'s client into data libraries must use libraries that
+- **Requires `@mysten/sui` `^2.33.1`** (the `/grpc` export needs ≥ 2.28; the floor is 2.33.1 so
+  one copy serves the upstream Mysten SDKs, which peer on `^2.33.1`) — hence the peer range. Consumers passing `getSuiClient`'s client into data libraries must use libraries that
   accept a `SuiGrpcClient`, not JSON-RPC method shapes.
 
 It exists to let multiple tool views (`walrus-ui`, `access-gate-ui`, `seal-ui`) share **one**
@@ -49,8 +49,11 @@ signed transaction bytes via `SuiGrpcClient` (`client.executeTransaction` /
 
 ## Peer dependencies
 
-Pinned to `@mysten/sui >=2.28 <3` and `@mysten/wallet-standard >=0.20 <1` — the `/grpc` subpath
-export and top-level `executeTransaction` / `waitForTransaction` are not available before 2.28.
+`@mysten/sui` `^2.33.1` and `@mysten/wallet-standard` `>=0.20 <1`. The code itself needs 2.28 (the
+`/grpc` subpath export and top-level `executeTransaction` / `waitForTransaction` are not available
+earlier); the floor is 2.33.1 because `@mysten/wallet-standard` 0.21.30, `@mysten/seal` 1.4.16 and
+`@mysten/walrus` 1.2.31 peer on `^2.33.1` (2.33.1 also raises its `@mysten/bcs` floor to 2.1.2), so
+a lower floor would let consumers resolve a version those SDKs reject.
 The APIs used (`getWallets`, `isWalletWithRequiredFeatureSet`, `SuiGrpcClient`, `executeTransaction`,
 `waitForTransaction`, feature casting) are stable across that range.
 
