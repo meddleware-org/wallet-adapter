@@ -170,3 +170,39 @@ describe('executor chain and account binding', () => {
     expect(fake.signTransaction).not.toHaveBeenCalled()
   })
 })
+
+describe('executor include option', () => {
+  afterEach(() => useWallet().disconnect())
+
+  it('returns the typed result without throwing for an on-chain failure', async () => {
+    const w = useWallet()
+    await w.connect(fakeWallet([ALICE]).wallet)
+    const exec = await buildExecutor('testnet', 'https://rpc.example')
+    const client = getSuiClient('testnet', 'https://rpc.example')
+    const failed = {
+      $kind: 'FailedTransaction',
+      FailedTransaction: { digest: 'D1', status: { success: false, error: { message: 'abort' } }, effects: {} },
+    }
+    const spy = vi.spyOn(client, 'executeTransaction').mockResolvedValue(failed as never)
+    const out = await exec.signAndExecute({} as never, { include: { effects: true } })
+    expect(out).toMatchObject({ digest: 'D1', success: false })
+    expect(spy.mock.calls[0][0]).toMatchObject({ include: { effects: true } })
+    // The plain form still throws on the same failure.
+    await expect(exec.signAndExecute({} as never)).rejects.toThrow(/failed on-chain/)
+    spy.mockRestore()
+  })
+
+  it('reports success from the effects status', async () => {
+    const w = useWallet()
+    await w.connect(fakeWallet([ALICE]).wallet)
+    const exec = await buildExecutor('testnet', 'https://rpc.example')
+    const client = getSuiClient('testnet', 'https://rpc.example')
+    const ok = { $kind: 'Transaction', Transaction: { digest: 'D2', status: { success: true, error: null } } }
+    const spy = vi.spyOn(client, 'executeTransaction').mockResolvedValue(ok as never)
+    expect(await exec.signAndExecute({} as never, { include: { objectTypes: true } })).toMatchObject({
+      digest: 'D2',
+      success: true,
+    })
+    spy.mockRestore()
+  })
+})

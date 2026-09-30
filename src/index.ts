@@ -5,7 +5,13 @@
 // works with any wallet-standard extension.
 
 export { useWallet, getSuiClient, buildExecutor } from './wallet.js'
-export type { Executor, WalletState, UseWalletOptions } from './wallet.js'
+export type {
+  Executor,
+  ExecutedTransaction,
+  TransactionInclude,
+  WalletState,
+  UseWalletOptions,
+} from './wallet.js'
 
 export { useNetwork } from './network.js'
 export type { MwNetwork } from './network.js'

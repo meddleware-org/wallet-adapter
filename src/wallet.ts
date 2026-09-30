@@ -20,6 +20,7 @@ import type { Wallet, WalletAccount } from '@mysten/wallet-standard'
 import { SuiGrpcClient } from '@mysten/sui/grpc'
 import { fromBase64 } from '@mysten/sui/utils'
 import type { Transaction } from '@mysten/sui/transactions'
+import type { SuiClientTypes } from '@mysten/sui/client'
 
 /** Sui networks the gRPC client accepts as a label. */
 type SuiNetwork = 'mainnet' | 'testnet' | 'devnet' | 'localnet'
@@ -194,11 +195,33 @@ export function digestFromExecuteResult(res: ExecuteTransactionLike): { digest: 
   return { digest: res.Transaction.digest }
 }
 
+/** Which execution details to return (`effects`, `objectTypes`, `balanceChanges`, `events`, …). */
+export type TransactionInclude = SuiClientTypes.TransactionInclude
+
+/**
+ * The detailed result of {@link Executor.signAndExecute} with `include`. Unlike the plain form it
+ * does **not** throw when the transaction failed on-chain — a failed transaction still has effects
+ * (gas used, the abort) — so callers MUST check `success` before treating it as done.
+ */
+export interface ExecutedTransaction<Include extends TransactionInclude> {
+  digest: string
+  /** `true` only when the effects status is success. */
+  success: boolean
+  /** The SDK result: `Transaction` on success, `FailedTransaction` when it aborted on-chain. */
+  result: SuiClientTypes.TransactionResult<Include>
+}
+
 /** Transaction executor bound to the connected wallet: sign+execute a PTB and await finality. */
 export interface Executor {
   /** The connected account address the executor signs with. */
   address: string
+  /** Sign and execute; resolves with the digest, and THROWS if the transaction failed on-chain. */
   signAndExecute(tx: Transaction): Promise<{ digest: string }>
+  /** Sign and execute, returning the requested execution details (see {@link ExecutedTransaction}). */
+  signAndExecute<Include extends TransactionInclude>(
+    tx: Transaction,
+    opts: { include: Include },
+  ): Promise<ExecutedTransaction<Include>>
   waitForTransaction(digest: string): Promise<unknown>
 }
 
@@ -234,26 +257,49 @@ export async function buildExecutor(network: string, rpcUrl: string): Promise<Ex
   if (!signFeature) throw new Error('This wallet cannot sign transactions.')
   assertAccountOnChain(acct, chain)
 
-  return {
-    address: acct.address,
-    async signAndExecute(tx: Transaction): Promise<{ digest: string }> {
-      // The executor is bound to one account: refuse to sign after a disconnect or an account
-      // switch rather than signing (or presenting) a transaction built for another sender.
-      if (currentWallet.value !== wallet || account.value?.address !== acct.address) {
-        throw new Error('The connected wallet account changed; rebuild the transaction and try again.')
-      }
-      const { bytes, signature } = await signFeature.signTransaction({
-        transaction: tx,
-        account: acct,
-        chain,
-      })
-      // gRPC core execution: the signed transaction bytes (base64 from the wallet) + signatures.
+  // Narrowed once here: function declarations do not inherit the checks above.
+  const boundAccount: WalletAccount = acct
+  const signer = signFeature
+
+  async function signAndExecute(tx: Transaction): Promise<{ digest: string }>
+  async function signAndExecute<Include extends TransactionInclude>(
+    tx: Transaction,
+    opts: { include: Include },
+  ): Promise<ExecutedTransaction<Include>>
+  async function signAndExecute<Include extends TransactionInclude>(
+    tx: Transaction,
+    opts?: { include: Include },
+  ): Promise<{ digest: string } | ExecutedTransaction<Include>> {
+    // The executor is bound to one account: refuse to sign after a disconnect or an account
+    // switch rather than signing (or presenting) a transaction built for another sender.
+    if (currentWallet.value !== wallet || account.value?.address !== boundAccount.address) {
+      throw new Error('The connected wallet account changed; rebuild the transaction and try again.')
+    }
+    const { bytes, signature } = await signer.signTransaction({
+      transaction: tx,
+      account: boundAccount,
+      chain,
+    })
+    // gRPC core execution: the signed transaction bytes (base64 from the wallet) + signatures.
+    if (!opts) {
       const res = await client.executeTransaction({
         transaction: fromBase64(bytes),
         signatures: [signature],
       })
       return digestFromExecuteResult(res)
-    },
+    }
+    const result = (await client.executeTransaction({
+      transaction: fromBase64(bytes),
+      signatures: [signature],
+      include: opts.include,
+    })) as SuiClientTypes.TransactionResult<Include>
+    const executed = result.$kind === 'Transaction' ? result.Transaction : result.FailedTransaction
+    return { digest: executed.digest, success: result.$kind === 'Transaction' && executed.status.success, result }
+  }
+
+  return {
+    address: acct.address,
+    signAndExecute,
     async waitForTransaction(digest: string): Promise<unknown> {
       return client.waitForTransaction({ digest })
     },

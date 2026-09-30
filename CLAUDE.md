@@ -42,10 +42,16 @@ separate connections.
 
 ## Executor shape
 
-`buildExecutor` returns `{ address, signAndExecute(tx), waitForTransaction(digest) }`. `address`
-is included unconditionally (superset of the three original per-app variants). It executes the
+`buildExecutor` returns `{ address, signAndExecute, waitForTransaction(digest) }`. It executes the
 signed transaction bytes via `SuiGrpcClient` (`client.executeTransaction` /
-`client.waitForTransaction`) so the returned effects are controlled.
+`client.waitForTransaction`).
+
+- `signAndExecute(tx)` → `{ digest }`; **throws** when the transaction failed on-chain.
+- `signAndExecute(tx, { include })` → `{ digest, success, result }` with the typed SDK
+  `TransactionResult` (`effects`, `objectTypes`, `balanceChanges`, `events`, … as requested). It does
+  **not** throw on an on-chain failure — callers check `success`. This is the one executor in the
+  workspace; apps that need effects (e.g. token-deployer's publish flow) use it instead of their own
+  signing code.
 
 ## Account and chain safety
 
