@@ -47,6 +47,18 @@ is included unconditionally (superset of the three original per-app variants). I
 signed transaction bytes via `SuiGrpcClient` (`client.executeTransaction` /
 `client.waitForTransaction`) so the returned effects are controlled.
 
+## Account and chain safety
+
+- **Wallet change events.** `connect` subscribes to the wallet's `standard:events` `change` event.
+  An account switch inside the wallet updates the reactive `account` (the current account is kept
+  while the wallet still exposes it). A change reporting no accounts clears the connection. The
+  listener is removed on disconnect. Consumers watch `account.value?.address` to reset per-account
+  state (sessions, ownership checks).
+- **Chain check.** `buildExecutor(network, …)` throws unless the account lists `sui:<network>` in
+  its wallet-standard `chains`.
+- **Account binding.** An executor signs only for the account it was built with; after a
+  disconnect or an account switch, `signAndExecute` throws instead of signing.
+
 ## Peer dependencies
 
 `@mysten/sui` `^2.33.1` and `@mysten/wallet-standard` `>=0.20 <1`. The code itself needs 2.28 (the

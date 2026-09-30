@@ -83,6 +83,43 @@ function init(): void {
   api.on('unregister', refreshWallets)
 }
 
+// Unsubscribe handle for the connected wallet's `standard:events` change listener.
+let stopWalletEvents: (() => void) | null = null
+
+type ChangeListener = (props: { accounts?: readonly WalletAccount[] }) => void
+
+/**
+ * Follow account switches made inside the wallet (wallet-standard `standard:events` → `change`):
+ * keep the current account while the wallet still exposes it, otherwise move to the wallet's first
+ * account, and drop the connection when the wallet reports no accounts (disconnected or locked).
+ * Consumers observe this through the reactive `account` ref.
+ */
+function subscribeToWalletEvents(wallet: Wallet): void {
+  stopWalletEvents?.()
+  stopWalletEvents = null
+  const events = wallet.features['standard:events'] as
+    | { on: (event: 'change', listener: ChangeListener) => () => void }
+    | undefined
+  if (!events) return
+  stopWalletEvents = events.on('change', ({ accounts }) => {
+    if (!accounts || currentWallet.value !== wallet) return
+    if (!accounts.length) {
+      clearConnection()
+      return
+    }
+    const current = account.value
+    const same = current && accounts.find((a) => a.address === current.address)
+    account.value = markRaw(same ?? accounts[0])
+  })
+}
+
+function clearConnection(): void {
+  stopWalletEvents?.()
+  stopWalletEvents = null
+  currentWallet.value = null
+  account.value = null
+}
+
 async function connect(wallet: Wallet): Promise<void> {
   error.value = null
   connecting.value = true
@@ -94,6 +131,7 @@ async function connect(wallet: Wallet): Promise<void> {
     if (!accounts.length) throw new Error('Wallet returned no accounts.')
     currentWallet.value = markRaw(wallet)
     account.value = markRaw(accounts[0])
+    subscribeToWalletEvents(wallet)
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e)
     throw e
@@ -107,8 +145,7 @@ function disconnect(): void {
     | { disconnect?: () => Promise<void> }
     | undefined
   void disc?.disconnect?.()
-  currentWallet.value = null
-  account.value = null
+  clearConnection()
 }
 
 /** Sign a personal message with the connected wallet; returns the base64 signature. */
@@ -165,6 +202,18 @@ export interface Executor {
   waitForTransaction(digest: string): Promise<unknown>
 }
 
+/**
+ * Refuse to sign for a chain the account does not declare. Wallet-standard accounts list the
+ * chains they support (`sui:mainnet`, `sui:testnet`, …); signing for an unlisted chain means the
+ * app and the wallet disagree about the network.
+ */
+function assertAccountOnChain(acct: WalletAccount, chain: `sui:${string}`): void {
+  if (!acct.chains.includes(chain)) {
+    const listed = acct.chains.length ? acct.chains.join(', ') : 'none'
+    throw new Error(`The connected wallet account does not support ${chain} (it lists: ${listed}). Switch the wallet's network.`)
+  }
+}
+
 /** Build an executor bound to the connected wallet + network/RPC URL. */
 export async function buildExecutor(network: string, rpcUrl: string): Promise<Executor> {
   const wallet = currentWallet.value
@@ -183,10 +232,16 @@ export async function buildExecutor(network: string, rpcUrl: string): Promise<Ex
       }
     | undefined
   if (!signFeature) throw new Error('This wallet cannot sign transactions.')
+  assertAccountOnChain(acct, chain)
 
   return {
     address: acct.address,
     async signAndExecute(tx: Transaction): Promise<{ digest: string }> {
+      // The executor is bound to one account: refuse to sign after a disconnect or an account
+      // switch rather than signing (or presenting) a transaction built for another sender.
+      if (currentWallet.value !== wallet || account.value?.address !== acct.address) {
+        throw new Error('The connected wallet account changed; rebuild the transaction and try again.')
+      }
       const { bytes, signature } = await signFeature.signTransaction({
         transaction: tx,
         account: acct,

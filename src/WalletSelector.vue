@@ -5,6 +5,14 @@ import type { Wallet } from '@mysten/wallet-standard'
 
 defineProps<{ wallets: readonly Wallet[] }>()
 const emit = defineEmits<{ select: [wallet: Wallet] }>()
+
+/**
+ * The icon is supplied by whatever extension registered the wallet. The Wallet Standard defines it
+ * as a `data:image/(svg+xml|webp|png|gif);base64,…` URI; anything else is not rendered.
+ */
+function safeIcon(icon: unknown): string | undefined {
+  return typeof icon === 'string' && /^data:image\/(svg\+xml|webp|png|gif);base64,/i.test(icon) ? icon : undefined
+}
 </script>
 
 <template>
@@ -12,7 +20,7 @@ const emit = defineEmits<{ select: [wallet: Wallet] }>()
   <menu v-if="wallets.length" class="ws-list">
     <li v-for="w in wallets" :key="w.name">
       <button type="button" class="ws-option" @click="emit('select', w)">
-        <img v-if="w.icon" :src="(w.icon as string)" alt="" class="ws-icon" />
+        <img v-if="safeIcon(w.icon)" :src="safeIcon(w.icon)" alt="" class="ws-icon" />
         {{ w.name }}
       </button>
     </li>

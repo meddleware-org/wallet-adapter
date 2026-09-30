@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { useWallet, getSuiClient, buildExecutor, digestFromExecuteResult } from '../src/wallet.js'
 
 // The connect / sign paths require a real wallet extension injecting into `window`
@@ -63,5 +63,110 @@ describe('digestFromExecuteResult (failed-tx surfacing)', () => {
 
   it('throws on an unexpected kind with no Transaction payload', () => {
     expect(() => digestFromExecuteResult({ $kind: 'Weird' })).toThrow(/unexpected execution result/i)
+  })
+})
+
+// A minimal wallet-standard wallet: `connect()` accepts any Wallet object, so the connection and
+// event paths are testable without the window-based registry.
+function fakeWallet(accounts: Array<{ address: string; chains: string[] }>) {
+  let listener: ((p: { accounts?: unknown[] }) => void) | null = null
+  const unsubscribe = vi.fn(() => {
+    listener = null
+  })
+  const signTransaction = vi.fn(async () => ({ bytes: 'AA==', signature: 'sig' }))
+  const wallet = {
+    name: 'Fake',
+    version: '1.0.0',
+    icon: 'data:image/png;base64,',
+    chains: ['sui:testnet'],
+    accounts,
+    features: {
+      'standard:connect': { version: '1.0.0', connect: async () => ({ accounts }) },
+      'standard:disconnect': { version: '1.0.0', disconnect: async () => {} },
+      'standard:events': {
+        version: '1.0.0',
+        on: (_event: string, l: (p: { accounts?: unknown[] }) => void) => {
+          listener = l
+          return unsubscribe
+        },
+      },
+      'sui:signTransaction': { version: '2.0.0', signTransaction },
+    },
+  }
+  return {
+    wallet: wallet as unknown as Parameters<ReturnType<typeof useWallet>['connect']>[0],
+    emit: (p: { accounts?: unknown[] }) => listener?.(p),
+    unsubscribe,
+    signTransaction,
+  }
+}
+
+const ALICE = { address: '0xa11ce', chains: ['sui:testnet'] }
+const BOB = { address: '0xb0b', chains: ['sui:testnet'] }
+
+describe('wallet change events', () => {
+  afterEach(() => useWallet().disconnect())
+
+  it('follows an account switch made inside the wallet', async () => {
+    const w = useWallet()
+    const fake = fakeWallet([ALICE, BOB])
+    await w.connect(fake.wallet)
+    expect(w.account.value?.address).toBe(ALICE.address)
+    fake.emit({ accounts: [BOB] })
+    expect(w.account.value?.address).toBe(BOB.address)
+  })
+
+  it('keeps the current account when it is still exposed', async () => {
+    const w = useWallet()
+    const fake = fakeWallet([ALICE, BOB])
+    await w.connect(fake.wallet)
+    fake.emit({ accounts: [BOB, ALICE] })
+    expect(w.account.value?.address).toBe(ALICE.address)
+  })
+
+  it('drops the connection when the wallet reports no accounts, and unsubscribes', async () => {
+    const w = useWallet()
+    const fake = fakeWallet([ALICE])
+    await w.connect(fake.wallet)
+    fake.emit({ accounts: [] })
+    expect(w.account.value).toBeNull()
+    expect(w.currentWallet.value).toBeNull()
+    expect(fake.unsubscribe).toHaveBeenCalledOnce()
+  })
+
+  it('ignores change events that carry no account list', async () => {
+    const w = useWallet()
+    const fake = fakeWallet([ALICE])
+    await w.connect(fake.wallet)
+    fake.emit({})
+    expect(w.account.value?.address).toBe(ALICE.address)
+  })
+
+  it('unsubscribes on disconnect', async () => {
+    const w = useWallet()
+    const fake = fakeWallet([ALICE])
+    await w.connect(fake.wallet)
+    w.disconnect()
+    expect(fake.unsubscribe).toHaveBeenCalledOnce()
+  })
+})
+
+describe('executor chain and account binding', () => {
+  afterEach(() => useWallet().disconnect())
+
+  it('refuses to build an executor for a chain the account does not list', async () => {
+    const w = useWallet()
+    await w.connect(fakeWallet([ALICE]).wallet)
+    await expect(buildExecutor('mainnet', 'https://rpc.example')).rejects.toThrow(/does not support sui:mainnet/)
+  })
+
+  it('refuses to sign after the account changed', async () => {
+    const w = useWallet()
+    const fake = fakeWallet([ALICE, BOB])
+    await w.connect(fake.wallet)
+    const exec = await buildExecutor('testnet', 'https://rpc.example')
+    fake.emit({ accounts: [BOB] })
+    await expect(exec.signAndExecute({} as never)).rejects.toThrow(/account changed/)
+    expect(fake.signTransaction).not.toHaveBeenCalled()
   })
 })

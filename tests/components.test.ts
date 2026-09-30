@@ -63,6 +63,18 @@ describe('WalletSelector', () => {
     expect(await axe(w.html(), opts)).toHaveNoViolations()
   })
 
+  it('renders only Wallet Standard data-URI icons', () => {
+    const wallets = [
+      { name: 'Data', icon: 'data:image/svg+xml;base64,PHN2Zy8+' },
+      { name: 'Remote', icon: 'https://tracker.example/pixel.png' },
+      { name: 'Script', icon: 'javascript:alert(1)' },
+    ] as unknown as Wallet[]
+    const w = mount(WalletSelector, { props: { wallets } })
+    const imgs = w.findAll('img')
+    expect(imgs).toHaveLength(1)
+    expect(imgs[0].attributes('src')).toBe('data:image/svg+xml;base64,PHN2Zy8+')
+  })
+
   it('shows a paragraph (not a list) when no wallet is installed', async () => {
     const w = mount(WalletSelector, { props: { wallets: [] } })
     expect(w.find('menu').exists()).toBe(false)
