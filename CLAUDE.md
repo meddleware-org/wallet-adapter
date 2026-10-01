@@ -78,6 +78,15 @@ a lower floor would let consumers resolve a version those SDKs reject.
 The APIs used (`getWallets`, `isWalletWithRequiredFeatureSet`, `SuiGrpcClient`, `executeTransaction`,
 `waitForTransaction`, feature casting) are stable across that range.
 
+## How consumers depend on it
+
+A module singleton only works as one copy. Every embeddable tool view (dao-ui, treasury-ui,
+access-gate-ui, seal-ui, walrus-ui, token-deployer-ui) declares this package as a
+**peerDependency** `>=0.0.12 <0.2.0` (plus a matching devDependency), so the host's single copy
+satisfies all of them. A plain `^0.0.x` dependency means exactly that patch, and two tools on
+different patches nest separate copies: separate connections. The host (the dashboard) has the
+one real dependency. A new patch needs only the host bumped.
+
 ## UI dependency
 
 `WalletModal` renders its picker in `@meddleware/ui`'s `UiDialog` (native `<dialog>`; Escape /
