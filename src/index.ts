@@ -8,6 +8,8 @@ export { useWallet, getSuiClient, buildExecutor } from './wallet.js'
 export type {
   Executor,
   ExecutedTransaction,
+  ExecutionClient,
+  BuildExecutorOptions,
   TransactionInclude,
   WalletState,
   UseWalletOptions,

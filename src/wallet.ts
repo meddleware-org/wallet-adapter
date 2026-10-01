@@ -237,12 +237,25 @@ function assertAccountOnChain(acct: WalletAccount, chain: `sui:${string}`): void
   }
 }
 
+/** The client calls an executor makes: the gRPC core API's execute + wait. */
+export type ExecutionClient = Pick<SuiGrpcClient, 'executeTransaction' | 'waitForTransaction'>
+
+/** Options for {@link buildExecutor}. */
+export interface BuildExecutorOptions {
+  /**
+   * Execute through this client instead of the shared one for `network` / `rpcUrl` — for an app
+   * with its own client (e.g. a test build that stubs the network). Signing, the chain check and
+   * the account binding are unchanged.
+   */
+  client?: ExecutionClient
+}
+
 /** Build an executor bound to the connected wallet + network/RPC URL. */
-export async function buildExecutor(network: string, rpcUrl: string): Promise<Executor> {
+export async function buildExecutor(network: string, rpcUrl: string, options: BuildExecutorOptions = {}): Promise<Executor> {
   const wallet = currentWallet.value
   const acct = account.value
   if (!wallet || !acct) throw new Error('Connect a wallet first.')
-  const client = getSuiClient(network, rpcUrl)
+  const client: ExecutionClient = options.client ?? getSuiClient(network, rpcUrl)
   const chain = `sui:${network}` as const
 
   const signFeature = wallet.features['sui:signTransaction'] as

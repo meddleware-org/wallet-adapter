@@ -52,6 +52,9 @@ signed transaction bytes via `SuiGrpcClient` (`client.executeTransaction` /
   **not** throw on an on-chain failure — callers check `success`. This is the one executor in the
   workspace; apps that need effects (e.g. token-deployer's publish flow) use it instead of their own
   signing code.
+- `buildExecutor(network, rpcUrl, { client })` executes and waits through the given client instead
+  of the shared one (e.g. an app's own client, or a test build's stub). Signing, the chain check
+  and the account binding are unchanged.
 
 ## Account and chain safety
 

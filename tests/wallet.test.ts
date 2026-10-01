@@ -206,3 +206,27 @@ describe('executor include option', () => {
     spy.mockRestore()
   })
 })
+
+describe('executor with an injected client', () => {
+  afterEach(() => useWallet().disconnect())
+
+  it('executes and waits through the given client, keeping the chain and account checks', async () => {
+    const w = useWallet()
+    const fake = fakeWallet([ALICE, BOB])
+    await w.connect(fake.wallet)
+    const ok = { $kind: 'Transaction', Transaction: { digest: 'D3', status: { success: true, error: null } } }
+    const client = { executeTransaction: vi.fn(async () => ok), waitForTransaction: vi.fn(async () => ok) }
+    const shared = vi.spyOn(getSuiClient('testnet', 'https://rpc.example'), 'executeTransaction')
+    const exec = await buildExecutor('testnet', 'https://rpc.example', { client: client as never })
+    expect(await exec.signAndExecute({} as never)).toEqual({ digest: 'D3' })
+    await exec.waitForTransaction('D3')
+    expect(client.executeTransaction).toHaveBeenCalledOnce()
+    expect(client.waitForTransaction).toHaveBeenCalledWith({ digest: 'D3' })
+    expect(shared).not.toHaveBeenCalled()
+    shared.mockRestore()
+
+    await expect(buildExecutor('mainnet', 'https://rpc.example', { client: client as never })).rejects.toThrow(/does not support sui:mainnet/)
+    fake.emit({ accounts: [BOB] })
+    await expect(exec.signAndExecute({} as never)).rejects.toThrow(/account changed/)
+  })
+})
