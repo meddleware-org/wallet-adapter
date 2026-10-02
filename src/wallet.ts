@@ -104,13 +104,14 @@ function subscribeToWalletEvents(wallet: Wallet): void {
   if (!events) return
   stopWalletEvents = events.on('change', ({ accounts }) => {
     if (!accounts || currentWallet.value !== wallet) return
-    if (!accounts.length) {
+    const first = accounts[0]
+    if (!first) {
       clearConnection()
       return
     }
     const current = account.value
     const same = current && accounts.find((a) => a.address === current.address)
-    account.value = markRaw(same ?? accounts[0])
+    account.value = markRaw(same ?? first)
   })
 }
 
@@ -129,9 +130,10 @@ async function connect(wallet: Wallet): Promise<void> {
       connect: () => Promise<{ accounts: readonly WalletAccount[] }>
     }
     const { accounts } = await feature.connect()
-    if (!accounts.length) throw new Error('Wallet returned no accounts.')
+    const first = accounts[0]
+    if (!first) throw new Error('Wallet returned no accounts.')
     currentWallet.value = markRaw(wallet)
-    account.value = markRaw(accounts[0])
+    account.value = markRaw(first)
     subscribeToWalletEvents(wallet)
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e)

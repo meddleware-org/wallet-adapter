@@ -20,13 +20,31 @@ const DEFAULT_LOCALNET_RPC = 'http://127.0.0.1:9000'
 const LS_NET   = 'mw:network'
 const LS_LOCAL = 'mw:localnet-rpc'
 
+// Browser storage can be missing or throw (blocked site data, some private modes, sandboxed
+// frames): a read or write failure must never break the app — the selection simply is not kept.
+function readStored(key: string): string | null {
+  try {
+    return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null
+  } catch {
+    return null
+  }
+}
+
+function writeStored(key: string, value: string): void {
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(key, value)
+  } catch {
+    // Not persisted; the in-memory selection still applies for this page.
+  }
+}
+
 function loadNetwork(): MwNetwork {
-  const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(LS_NET) : null
+  const stored = readStored(LS_NET)
   return (stored === 'testnet' || stored === 'mainnet' || stored === 'localnet') ? stored : 'testnet'
 }
 
 function loadLocalnetRpc(): string {
-  const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(LS_LOCAL) : null
+  const stored = readStored(LS_LOCAL)
   return (stored && isLocalUrl(stored)) ? stored : DEFAULT_LOCALNET_RPC
 }
 
@@ -41,7 +59,7 @@ export function useNetwork() {
 
   function setNetwork(n: MwNetwork): void {
     _network.value = n
-    if (typeof localStorage !== 'undefined') localStorage.setItem(LS_NET, n)
+    writeStored(LS_NET, n)
   }
 
   function setLocalnetRpc(url: string): void {
@@ -51,7 +69,7 @@ export function useNetwork() {
       )
     }
     _localnetRpc.value = url
-    if (typeof localStorage !== 'undefined') localStorage.setItem(LS_LOCAL, url)
+    writeStored(LS_LOCAL, url)
   }
 
   return {
