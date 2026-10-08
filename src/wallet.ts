@@ -18,7 +18,7 @@ import type { DeepReadonly, Ref } from 'vue'
 import { getWallets, isWalletWithRequiredFeatureSet } from '@mysten/wallet-standard'
 import type { Wallet, WalletAccount } from '@mysten/wallet-standard'
 import { SuiGrpcClient } from '@mysten/sui/grpc'
-import { fromBase64 } from '@mysten/sui/utils'
+import { fromBase58, fromBase64 } from '@mysten/sui/utils'
 import type { Transaction } from '@mysten/sui/transactions'
 import type { SuiClientTypes } from '@mysten/sui/client'
 import { networkGeneration } from './network.js'
@@ -247,9 +247,19 @@ function assertAccountOnChain(acct: WalletAccount, chain: `sui:${string}`): void
   }
 }
 
-/** First four bytes (hex) of the genesis digest: the chain identifier public nodes report. */
+/** The short chain id Move, Published.toml and wallets use: the first four bytes of the genesis digest, hex. */
 const KNOWN_CHAIN_IDS: Readonly<Record<string, string>> = { testnet: '4c78adac', mainnet: '35834a8a' }
 const verifiedRpcs = new Set<string>()
+
+/**
+ * The short id of a node's `getChainIdentifier()` result. Nodes report the full base58 genesis
+ * checkpoint digest (`69WiPg3D…` for testnet); the short id is its first four bytes in hex.
+ */
+export function shortChainId(chainIdentifier: string): string {
+  const bytes = fromBase58(chainIdentifier)
+  if (bytes.length < 4) throw new Error(`unexpected chain identifier: ${chainIdentifier}`)
+  return Array.from(bytes.slice(0, 4), (b) => b.toString(16).padStart(2, '0')).join('')
+}
 
 /**
  * Refuse an RPC that does not serve `network`. Signing bytes for one chain and submitting them to
@@ -264,8 +274,9 @@ async function assertRpcServesNetwork(client: unknown, network: string, rpcUrl: 
   const core = (client as { core?: { getChainIdentifier?: () => Promise<{ chainIdentifier: string }> } }).core
   if (!core?.getChainIdentifier) return // an injected client without the call: nothing to check
   const { chainIdentifier } = await core.getChainIdentifier()
-  if (chainIdentifier !== want) {
-    throw new Error(`The RPC at ${rpcUrl} serves chain ${chainIdentifier}, not ${network} (${want}). Check the network and RPC URL.`)
+  const got = shortChainId(chainIdentifier)
+  if (got !== want) {
+    throw new Error(`The RPC at ${rpcUrl} serves chain ${got}, not ${network} (${want}). Check the network and RPC URL.`)
   }
   verifiedRpcs.add(key)
 }

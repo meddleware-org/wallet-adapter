@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { useWallet, getSuiClient, buildExecutor, digestFromExecuteResult } from '../src/wallet.js'
+import { useWallet, getSuiClient, buildExecutor, digestFromExecuteResult, shortChainId } from '../src/wallet.js'
 
 // The connect / sign paths require a real wallet extension injecting into `window`
 // (wallet-standard's registry is window-based). Those are exercised manually in a browser.
@@ -67,7 +67,9 @@ describe('digestFromExecuteResult (failed-tx surfacing)', () => {
 })
 
 /** The shared client for `network` + `url`, with its chain-identifier read answered locally (no network). */
-function stubChainId(network: 'testnet' | 'mainnet', url: string, id = network === 'testnet' ? '4c78adac' : '35834a8a') {
+/** What a node really reports (`getChainIdentifier`): the full base58 genesis digest. */
+const CHAIN_IDENTIFIER = { testnet: '69WiPg3DAQiwdxfncX6wYQ2siKwAe6L9BZthQea3JNMD', mainnet: '4btiuiMPvEENsttpZC7CZ53DruC3MAgfznDbASZ7DR6S' } as const
+function stubChainId(network: 'testnet' | 'mainnet', url: string, id: string = CHAIN_IDENTIFIER[network]) {
   return vi.spyOn(getSuiClient(network, url).core, 'getChainIdentifier').mockResolvedValue({ chainIdentifier: id })
 }
 
@@ -249,9 +251,9 @@ describe('RPC / network binding', () => {
   it('refuses an RPC that serves another chain than the network, and caches a good answer', async () => {
     const w = useWallet()
     await w.connect(fakeWallet([{ address: '0xa', chains: ['sui:testnet', 'sui:mainnet'] }]).wallet)
-    const wrong = okClient('35834a8a') // mainnet's id behind a testnet label
-    await expect(buildExecutor('testnet', 'https://rpc-wrong.example', { client: wrong as never })).rejects.toThrow(/serves chain 35834a8a, not testnet/)
-    const right = okClient('4c78adac')
+    const wrong = okClient(CHAIN_IDENTIFIER.mainnet) // mainnet's chain behind a testnet label
+    await expect(buildExecutor('testnet', 'https://rpc-wrong.example', { client: wrong as never })).rejects.toThrow(/serves chain 35834a8a, not testnet \(4c78adac\)/)
+    const right = okClient(CHAIN_IDENTIFIER.testnet)
     await buildExecutor('testnet', 'https://rpc-right.example', { client: right as never })
     await buildExecutor('testnet', 'https://rpc-right.example', { client: right as never })
     expect(right.core.getChainIdentifier).toHaveBeenCalledOnce() // verified once per network + URL
@@ -307,5 +309,13 @@ describe('connect serialisation and disconnect', () => {
     }
     await expect(w.connect(bad.wallet)).rejects.toThrow('User rejected')
     expect(w.error.value).toBe('User rejected the request')
+  })
+})
+
+describe('shortChainId', () => {
+  it('maps the identifiers public nodes report to the short ids', () => {
+    expect(shortChainId('69WiPg3DAQiwdxfncX6wYQ2siKwAe6L9BZthQea3JNMD')).toBe('4c78adac')
+    expect(shortChainId('4btiuiMPvEENsttpZC7CZ53DruC3MAgfznDbASZ7DR6S')).toBe('35834a8a')
+    expect(() => shortChainId('2')).toThrow(/unexpected chain identifier/)
   })
 })
