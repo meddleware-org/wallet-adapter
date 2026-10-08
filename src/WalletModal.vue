@@ -47,28 +47,28 @@ async function onSelect(w: Wallet): Promise<void> {
   width: 100%;
   padding: 0.5rem 1rem;
   background: none;
-  border: 1px solid var(--border, #444);
+  border: 1px solid var(--border);
   border-radius: 999px;
-  color: var(--muted, #aaa);
+  color: var(--muted);
   font-size: 0.85rem;
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s;
 }
 
 .wm-trigger:hover {
-  border-color: var(--accent, #6366f1);
-  color: var(--text, #fff);
+  border-color: var(--accent);
+  color: var(--text);
 }
 
 .wm-error {
-  color: var(--danger, #f87171);
+  color: var(--danger);
   font-size: 0.875rem;
   margin: 0.5rem 0 0;
   text-align: center;
 }
 
 .wm-status {
-  color: var(--muted, #888);
+  color: var(--muted);
   font-size: 0.875rem;
   margin: 0;
   text-align: center;

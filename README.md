@@ -31,7 +31,7 @@ if (wallets.value[0]) await connect(wallets.value[0])
 // sign + execute a PTB
 const exec = await buildExecutor(NETWORK, RPC[NETWORK])
 const { digest } = await exec.signAndExecute(tx)
-await exec.waitForTransaction(digest)
+await exec.waitForTransaction(digest) // signAndExecute does not wait for indexing: wait before dependent reads
 
 // read-only client
 const client = getSuiClient(NETWORK, RPC[NETWORK])

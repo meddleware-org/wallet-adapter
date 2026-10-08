@@ -36,3 +36,14 @@ describe('useNetwork with unavailable browser storage', () => {
     expect(net.localnetRpc.value).toBe('http://127.0.0.1:9000')
   })
 })
+
+describe('useNetwork validation', () => {
+  it('refuses an unknown network name instead of storing it', async () => {
+    vi.resetModules()
+    const { useNetwork } = await import('../src/network.js')
+    const net = useNetwork()
+    expect(() => net.setNetwork('evilnet' as never)).toThrow(/unknown network/)
+    expect(net.network.value).toBe('testnet')
+    expect(net.rpcUrl.value).toBe('https://fullnode.testnet.sui.io:443')
+  })
+})

@@ -3,7 +3,8 @@
 // in the same window — the same module singleton pattern as wallet.ts.
 import { computed, readonly, ref } from 'vue'
 
-function isLocalUrl(url: string): boolean {
+/** `http://localhost` or `http://127.0.0.1` (any port/path): the only plain-http endpoint accepted, for local dev. */
+export function isLocalUrl(url: string): boolean {
   try {
     const u = new URL(url)
     return u.protocol === 'http:' && (u.hostname === 'localhost' || u.hostname === '127.0.0.1')
@@ -11,6 +12,9 @@ function isLocalUrl(url: string): boolean {
 }
 
 export type MwNetwork = 'testnet' | 'mainnet' | 'localnet'
+
+/** The networks this adapter selects between. */
+export const MW_NETWORKS: readonly MwNetwork[] = ['testnet', 'mainnet', 'localnet']
 
 const DEFAULT_RPC: Record<Exclude<MwNetwork, 'localnet'>, string> = {
   testnet: 'https://fullnode.testnet.sui.io:443',
@@ -66,6 +70,11 @@ export function useNetwork() {
   )
 
   function setNetwork(n: MwNetwork): void {
+    // A JavaScript caller (or a stale stored value) must not be able to select an unknown network: its
+    // rpcUrl would be undefined and the chain checks keyed on the name would mean nothing.
+    if (!MW_NETWORKS.includes(n)) {
+      throw new Error(`setNetwork: unknown network "${String(n)}" (expected ${MW_NETWORKS.join(', ')})`)
+    }
     if (_network.value !== n) generation++
     _network.value = n
     writeStored(LS_NET, n)

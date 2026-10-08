@@ -1,10 +1,20 @@
 <script setup lang="ts">
 // Presentational wallet picker — renders one button per discovered wallet extension.
 // Callers own the connect logic; this component only emits which wallet was chosen.
+import { computed } from 'vue'
 import type { Wallet } from '@mysten/wallet-standard'
 
-defineProps<{ wallets: readonly Wallet[] }>()
+const props = defineProps<{ wallets: readonly Wallet[] }>()
 const emit = defineEmits<{ select: [wallet: Wallet] }>()
+
+// Any extension can register a wallet with any name and icon, so two entries can look identical. The
+// wallet's own confirmation is the real protection; this makes the ambiguity visible before a choice.
+const duplicateNames = computed(() => {
+  const seen = new Set<string>()
+  const dup = new Set<string>()
+  for (const w of props.wallets) (seen.has(w.name) ? dup : seen).add(w.name)
+  return [...dup]
+})
 
 /**
  * The icon is supplied by whatever extension registered the wallet. The Wallet Standard defines it
@@ -17,8 +27,12 @@ function safeIcon(icon: unknown): string | undefined {
 
 <template>
   <!-- A list of commands (one per wallet) — or, when none are installed, a single message. -->
+  <p v-if="duplicateNames.length" class="ws-warning" role="note">
+    Several wallets are named {{ duplicateNames.map((n) => `“${n}”`).join(', ') }}. Check your browser extensions
+    before choosing one.
+  </p>
   <menu v-if="wallets.length" class="ws-list">
-    <li v-for="w in wallets" :key="w.name">
+    <li v-for="(w, i) in wallets" :key="`${i}:${w.name}`">
       <button type="button" class="ws-option" @click="emit('select', w)">
         <img v-if="safeIcon(w.icon)" :src="safeIcon(w.icon)" alt="" class="ws-icon" />
         {{ w.name }}
@@ -47,10 +61,10 @@ function safeIcon(icon: unknown): string | undefined {
   gap: 0.75rem;
   width: 100%;
   padding: 0.75rem 1rem;
-  background: var(--surface, transparent);
-  border: 1px solid var(--border, #333);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  color: var(--text, inherit);
+  color: var(--text);
   font-size: 0.95rem;
   text-align: left;
   cursor: pointer;
@@ -58,8 +72,8 @@ function safeIcon(icon: unknown): string | undefined {
 }
 
 .ws-option:hover {
-  border-color: var(--accent, #6366f1);
-  background: var(--surface-hover, rgb(99 102 241 / 8%));
+  border-color: var(--accent);
+  background: var(--lift);
 }
 
 .ws-icon {
@@ -70,8 +84,14 @@ function safeIcon(icon: unknown): string | undefined {
   border-radius: 4px;
 }
 
+.ws-warning {
+  color: var(--warning-text);
+  font-size: 0.85rem;
+  margin: 0 0 0.75rem;
+}
+
 .ws-empty {
-  color: var(--muted, #888);
+  color: var(--muted);
   font-size: 0.9rem;
   margin: 0;
 }

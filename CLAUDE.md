@@ -46,7 +46,8 @@ separate connections.
 
 `buildExecutor` returns `{ address, signAndExecute, waitForTransaction(digest) }`. It executes the
 signed transaction bytes via `SuiGrpcClient` (`client.executeTransaction` /
-`client.waitForTransaction`).
+`client.waitForTransaction`). `signAndExecute` returns once the node has the transaction; it does NOT
+wait for indexing, so callers `waitForTransaction(digest)` before any dependent read.
 
 - `signAndExecute(tx)` → `{ digest }`; **throws** when the transaction failed on-chain.
 - `signAndExecute(tx, { include })` → `{ digest, success, result }` with the typed SDK
@@ -78,7 +79,7 @@ signed transaction bytes via `SuiGrpcClient` (`client.executeTransaction` /
 
 ## Peer dependencies
 
-`@mysten/sui` `^2.33.1` and `@mysten/wallet-standard` `>=0.20 <1`. The code itself needs 2.28 (the
+`@mysten/sui` `^2.33.1` and `@mysten/wallet-standard` `>=0.21 <0.22` (0.x minors are breaking; widen after testing). The code itself needs 2.28 (the
 `/grpc` subpath export and top-level `executeTransaction` / `waitForTransaction` are not available
 earlier); the floor is 2.33.1 because `@mysten/wallet-standard` 0.21.30, `@mysten/seal` 1.4.16 and
 `@mysten/walrus` 1.2.31 peer on `^2.33.1` (2.33.1 also raises its `@mysten/bcs` floor to 2.1.2), so

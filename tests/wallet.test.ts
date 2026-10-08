@@ -6,6 +6,20 @@ import { useWallet, getSuiClient, buildExecutor, digestFromExecuteResult, shortC
 // These unit tests cover the parts that are deterministic off a browser: the Sui client
 // cache and the "connect first" guards on the signing operations.
 
+describe('getSuiClient: network and url rules', () => {
+  it('refuses an unknown network label', () => {
+    expect(() => getSuiClient('evilnet', 'https://rpc.example')).toThrow(/unknown network/)
+  })
+
+  it('accepts https anywhere and plain http only on localhost / 127.0.0.1, with one rule', () => {
+    expect(() => getSuiClient('localnet', 'http://127.0.0.1:9000')).not.toThrow()
+    expect(() => getSuiClient('localnet', 'http://localhost:9000/x')).not.toThrow()
+    for (const bad of ['ws://localhost:9000', 'ftp://127.0.0.1', 'http://rpc.example', 'file:///tmp/x', 'not a url']) {
+      expect(() => getSuiClient('localnet', bad), bad).toThrow(/rpcUrl must use https/)
+    }
+  })
+})
+
 describe('getSuiClient', () => {
   it('memoises one client per network+url', () => {
     const a = getSuiClient('testnet', 'https://rpc.example/one')

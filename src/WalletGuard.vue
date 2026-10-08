@@ -33,13 +33,13 @@ const { account } = useWallet()
   width: 100%;
   margin: 5rem auto;
   padding: 2rem;
-  border: 1px solid var(--border, #333);
+  border: 1px solid var(--border);
   border-radius: 12px;
   text-align: center;
 }
 
 .wg-message {
-  color: var(--muted, #888);
+  color: var(--muted);
   margin: 0;
   font-size: 0.95rem;
 }

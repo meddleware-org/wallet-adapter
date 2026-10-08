@@ -21,16 +21,18 @@ import { SuiGrpcClient } from '@mysten/sui/grpc'
 import { fromBase58, fromBase64 } from '@mysten/sui/utils'
 import type { Transaction } from '@mysten/sui/transactions'
 import type { SuiClientTypes } from '@mysten/sui/client'
-import { networkGeneration } from './network.js'
+import { isLocalUrl, networkGeneration } from './network.js'
 
 /** Sui networks the gRPC client accepts as a label. */
 type SuiNetwork = 'mainnet' | 'testnet' | 'devnet' | 'localnet'
 
-/** Allow https:// and http://localhost / http://127.0.0.1 for local dev. */
+/** Networks the gRPC client accepts as a label (what `getSuiClient` may be asked for). */
+const GRPC_NETWORKS = ['mainnet', 'testnet', 'devnet', 'localnet']
+
+/** Allow https:// and http://localhost / http://127.0.0.1 for local dev (the same local rule as `network.ts`). */
 function isAllowedGrpcUrl(url: string): boolean {
   try {
-    const u = new URL(url)
-    return u.protocol === 'https:' || u.hostname === 'localhost' || u.hostname === '127.0.0.1'
+    return new URL(url).protocol === 'https:' || isLocalUrl(url)
   } catch { return false }
 }
 
@@ -52,6 +54,9 @@ const BASELINE = ['standard:connect']
 const clients = new Map<string, SuiGrpcClient>()
 /** Return a memoised {@link SuiGrpcClient} for the network + gRPC-web URL (one instance each). */
 export function getSuiClient(network: string, rpcUrl: string): SuiGrpcClient {
+  if (!GRPC_NETWORKS.includes(network)) {
+    throw new Error(`getSuiClient: unknown network "${network}" (expected ${GRPC_NETWORKS.join(', ')})`)
+  }
   if (!isAllowedGrpcUrl(rpcUrl)) {
     throw new Error(
       `getSuiClient: rpcUrl must use https:// (or http://localhost / http://127.0.0.1 for local dev). Got: ${rpcUrl}`,
@@ -219,7 +224,11 @@ export interface ExecutedTransaction<Include extends TransactionInclude> {
   result: SuiClientTypes.TransactionResult<Include>
 }
 
-/** Transaction executor bound to the connected wallet: sign+execute a PTB and await finality. */
+/**
+ * Transaction executor bound to the connected wallet: sign and execute a PTB. Execution returns once the
+ * node has the transaction; it does NOT wait until the transaction is indexed — call `waitForTransaction(digest)`
+ * before reading state that depends on it.
+ */
 export interface Executor {
   /** The connected account address the executor signs with. */
   address: string
@@ -230,6 +239,7 @@ export interface Executor {
     tx: Transaction,
     opts: { include: Include },
   ): Promise<ExecutedTransaction<Include>>
+  /** Resolve once the transaction is available to reads (call before dependent reads). */
   waitForTransaction(digest: string): Promise<unknown>
 }
 
