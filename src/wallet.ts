@@ -13,7 +13,7 @@
 // they are intentionally thin and execute via gRPC (SuiGrpcClient). Feature availability
 // is guarded at call time, so a wallet missing an optional feature fails that specific
 // operation rather than being excluded from discovery.
-import { markRaw, readonly, ref, shallowRef } from 'vue'
+import { computed, markRaw, readonly, ref, shallowRef } from 'vue'
 import type { DeepReadonly, Ref } from 'vue'
 import { getWallets, isWalletWithRequiredFeatureSet } from '@mysten/wallet-standard'
 import type { Wallet, WalletAccount } from '@mysten/wallet-standard'
@@ -21,6 +21,7 @@ import { SuiGrpcClient } from '@mysten/sui/grpc'
 import { fromBase64 } from '@mysten/sui/utils'
 import type { Transaction } from '@mysten/sui/transactions'
 import type { SuiClientTypes } from '@mysten/sui/client'
+import { networkGeneration } from './network.js'
 
 /** Sui networks the gRPC client accepts as a label. */
 type SuiNetwork = 'mainnet' | 'testnet' | 'devnet' | 'localnet'
@@ -40,10 +41,10 @@ const account = shallowRef<WalletAccount | null>(null)
 const connecting = ref(false)
 const error = ref<string | null>(null)
 
-// Wallet discovery is filtered on the UNION of features requested by every `useWallet`
-// caller. A wallet passing the union filter can serve every tool sharing the singleton.
-// `standard:connect` is the baseline (a wallet that cannot connect is useless).
-const requiredFeatures = new Set<string>(['standard:connect'])
+// Discovery lists every wallet that can connect (`standard:connect`). A tool that needs more
+// (say `sui:signPersonalMessage`) asks `useWallet({ requiredFeatures })` for its OWN filtered list;
+// it never narrows what another tool sees, and every operation is also feature-guarded at call time.
+const BASELINE = ['standard:connect']
 
 // ── Sui client cache (keyed by network + url so a URL change is not silently ignored) ─────
 // gRPC client (JSON-RPC is deprecated SDK-wide). `rpcUrl` is a gRPC-web endpoint, e.g.
@@ -70,7 +71,7 @@ function refreshWallets(): void {
   // throw when accessed through a Vue reactive Proxy.
   wallets.value = getWallets()
     .get()
-    .filter((w) => isWalletWithRequiredFeatureSet(w, [...requiredFeatures]))
+    .filter((w) => isWalletWithRequiredFeatureSet(w, BASELINE))
     .map((w) => markRaw(w))
 }
 
@@ -123,6 +124,9 @@ function clearConnection(): void {
 }
 
 async function connect(wallet: Wallet): Promise<void> {
+  // One connection attempt at a time: a double click or a second wallet clicked mid-prompt is ignored
+  // instead of racing (the last to resolve would win, and the other's event listener be dropped).
+  if (connecting.value) return
   error.value = null
   connecting.value = true
   try {
@@ -147,7 +151,9 @@ function disconnect(): void {
   const disc = currentWallet.value?.features['standard:disconnect'] as
     | { disconnect?: () => Promise<void> }
     | undefined
-  void disc?.disconnect?.()
+  // A wallet that rejects its own disconnect must not become an unhandled rejection; local state
+  // is cleared regardless.
+  void Promise.resolve(disc?.disconnect?.()).catch(() => {})
   clearConnection()
 }
 
@@ -228,15 +234,40 @@ export interface Executor {
 }
 
 /**
- * Refuse to sign for a chain the account does not declare. Wallet-standard accounts list the
- * chains they support (`sui:mainnet`, `sui:testnet`, …); signing for an unlisted chain means the
- * app and the wallet disagree about the network.
+ * Refuse to sign for a chain the account cannot sign for. Wallet-standard accounts list the chains
+ * they SUPPORT (`sui:mainnet`, `sui:testnet`, …), and most Sui wallets list all of them, so this
+ * catches an unsupported chain, not the network the wallet UI happens to be set to. The binding that
+ * matters is the explicit `chain` passed to `signTransaction`; the RPC's chain id is checked
+ * separately ({@link assertRpcServesNetwork}).
  */
 function assertAccountOnChain(acct: WalletAccount, chain: `sui:${string}`): void {
   if (!acct.chains.includes(chain)) {
     const listed = acct.chains.length ? acct.chains.join(', ') : 'none'
-    throw new Error(`The connected wallet account does not support ${chain} (it lists: ${listed}). Switch the wallet's network.`)
+    throw new Error(`The connected wallet account cannot sign for ${chain} (it lists: ${listed}).`)
   }
+}
+
+/** First four bytes (hex) of the genesis digest: the chain identifier public nodes report. */
+const KNOWN_CHAIN_IDS: Readonly<Record<string, string>> = { testnet: '4c78adac', mainnet: '35834a8a' }
+const verifiedRpcs = new Set<string>()
+
+/**
+ * Refuse an RPC that does not serve `network`. Signing bytes for one chain and submitting them to
+ * another's node fails confusingly at best; reading the chain identifier once (cached per
+ * network + URL) and comparing it with the known id catches a mismatched pair up front. Only
+ * `testnet` and `mainnet` have a fixed id; other networks are not checked.
+ */
+async function assertRpcServesNetwork(client: unknown, network: string, rpcUrl: string): Promise<void> {
+  const want = KNOWN_CHAIN_IDS[network]
+  const key = `${network}|${rpcUrl}`
+  if (!want || verifiedRpcs.has(key)) return
+  const core = (client as { core?: { getChainIdentifier?: () => Promise<{ chainIdentifier: string }> } }).core
+  if (!core?.getChainIdentifier) return // an injected client without the call: nothing to check
+  const { chainIdentifier } = await core.getChainIdentifier()
+  if (chainIdentifier !== want) {
+    throw new Error(`The RPC at ${rpcUrl} serves chain ${chainIdentifier}, not ${network} (${want}). Check the network and RPC URL.`)
+  }
+  verifiedRpcs.add(key)
 }
 
 /** The client calls an executor makes: the gRPC core API's execute + wait. */
@@ -271,6 +302,8 @@ export async function buildExecutor(network: string, rpcUrl: string, options: Bu
     | undefined
   if (!signFeature) throw new Error('This wallet cannot sign transactions.')
   assertAccountOnChain(acct, chain)
+  await assertRpcServesNetwork(client, network, rpcUrl)
+  const builtInGeneration = networkGeneration()
 
   // Narrowed once here: function declarations do not inherit the checks above.
   const boundAccount: WalletAccount = acct
@@ -289,6 +322,10 @@ export async function buildExecutor(network: string, rpcUrl: string, options: Bu
     // switch rather than signing (or presenting) a transaction built for another sender.
     if (currentWallet.value !== wallet || account.value?.address !== boundAccount.address) {
       throw new Error('The connected wallet account changed; rebuild the transaction and try again.')
+    }
+    // Likewise for the selected network: this executor signs for, and submits to, the one it was built for.
+    if (networkGeneration() !== builtInGeneration) {
+      throw new Error('The selected network changed; rebuild the transaction and try again.')
     }
     const { bytes, signature } = await signer.signTransaction({
       transaction: tx,
@@ -333,9 +370,9 @@ export interface WalletState {
 /** Options for {@link useWallet}. */
 export interface UseWalletOptions {
   /**
-   * Wallet-standard features this consumer needs. Merged into the singleton's discovery
-   * filter (union across all callers). Defaults to just `standard:connect`; individual
-   * operations are additionally feature-guarded at call time.
+   * Wallet-standard features this consumer needs. Applied to THIS caller's `wallets` list only
+   * (default: just `standard:connect`); other callers still see every connectable wallet.
+   * Individual operations are additionally feature-guarded at call time.
    */
   requiredFeatures?: string[]
 }
@@ -345,22 +382,16 @@ export interface UseWalletOptions {
  * `connect` / `disconnect` / `signPersonalMessage` / `buildExecutor` / `getSuiClient`.
  *
  * Module singleton — every caller shares one wallet/account state. Passing `requiredFeatures`
- * widens the discovery filter (union); it never narrows another caller's view.
+ * filters this caller's `wallets` list; it never changes what another caller sees.
  */
 export function useWallet(options?: UseWalletOptions) {
-  if (options?.requiredFeatures?.length) {
-    let changed = false
-    for (const f of options.requiredFeatures) {
-      if (!requiredFeatures.has(f)) {
-        requiredFeatures.add(f)
-        changed = true
-      }
-    }
-    if (initialised && changed) refreshWallets()
-  }
   init()
+  const needed = [...new Set([...BASELINE, ...(options?.requiredFeatures ?? [])])]
+  const visible = needed.length === BASELINE.length
+    ? readonly(wallets)
+    : readonly(computed(() => wallets.value.filter((w) => isWalletWithRequiredFeatureSet(w, needed))))
   return {
-    wallets: readonly(wallets),
+    wallets: visible,
     currentWallet: readonly(currentWallet),
     account: readonly(account),
     connecting: readonly(connecting),

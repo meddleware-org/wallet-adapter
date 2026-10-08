@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { useWallet, getSuiClient, buildExecutor, digestFromExecuteResult } from '../src/wallet.js'
 
 // The connect / sign paths require a real wallet extension injecting into `window`
@@ -65,6 +65,11 @@ describe('digestFromExecuteResult (failed-tx surfacing)', () => {
     expect(() => digestFromExecuteResult({ $kind: 'Weird' })).toThrow(/unexpected execution result/i)
   })
 })
+
+/** The shared client for `network` + `url`, with its chain-identifier read answered locally (no network). */
+function stubChainId(network: 'testnet' | 'mainnet', url: string, id = network === 'testnet' ? '4c78adac' : '35834a8a') {
+  return vi.spyOn(getSuiClient(network, url).core, 'getChainIdentifier').mockResolvedValue({ chainIdentifier: id })
+}
 
 // A minimal wallet-standard wallet: `connect()` accepts any Wallet object, so the connection and
 // event paths are testable without the window-based registry.
@@ -157,10 +162,11 @@ describe('executor chain and account binding', () => {
   it('refuses to build an executor for a chain the account does not list', async () => {
     const w = useWallet()
     await w.connect(fakeWallet([ALICE]).wallet)
-    await expect(buildExecutor('mainnet', 'https://rpc.example')).rejects.toThrow(/does not support sui:mainnet/)
+    await expect(buildExecutor('mainnet', 'https://rpc.example')).rejects.toThrow(/cannot sign for sui:mainnet/)
   })
 
   it('refuses to sign after the account changed', async () => {
+    stubChainId('testnet', 'https://rpc.example')
     const w = useWallet()
     const fake = fakeWallet([ALICE, BOB])
     await w.connect(fake.wallet)
@@ -172,6 +178,7 @@ describe('executor chain and account binding', () => {
 })
 
 describe('executor include option', () => {
+  beforeEach(() => void stubChainId('testnet', 'https://rpc.example'))
   afterEach(() => useWallet().disconnect())
 
   it('returns the typed result without throwing for an on-chain failure', async () => {
@@ -225,8 +232,80 @@ describe('executor with an injected client', () => {
     expect(shared).not.toHaveBeenCalled()
     shared.mockRestore()
 
-    await expect(buildExecutor('mainnet', 'https://rpc.example', { client: client as never })).rejects.toThrow(/does not support sui:mainnet/)
+    await expect(buildExecutor('mainnet', 'https://rpc.example', { client: client as never })).rejects.toThrow(/cannot sign for sui:mainnet/)
     fake.emit({ accounts: [BOB] })
     await expect(exec.signAndExecute({} as never)).rejects.toThrow(/account changed/)
+  })
+})
+
+describe('RPC / network binding', () => {
+  afterEach(() => useWallet().disconnect())
+  const okClient = (chainIdentifier: string) => ({
+    core: { getChainIdentifier: vi.fn(async () => ({ chainIdentifier })) },
+    executeTransaction: vi.fn(),
+    waitForTransaction: vi.fn(),
+  })
+
+  it('refuses an RPC that serves another chain than the network, and caches a good answer', async () => {
+    const w = useWallet()
+    await w.connect(fakeWallet([{ address: '0xa', chains: ['sui:testnet', 'sui:mainnet'] }]).wallet)
+    const wrong = okClient('35834a8a') // mainnet's id behind a testnet label
+    await expect(buildExecutor('testnet', 'https://rpc-wrong.example', { client: wrong as never })).rejects.toThrow(/serves chain 35834a8a, not testnet/)
+    const right = okClient('4c78adac')
+    await buildExecutor('testnet', 'https://rpc-right.example', { client: right as never })
+    await buildExecutor('testnet', 'https://rpc-right.example', { client: right as never })
+    expect(right.core.getChainIdentifier).toHaveBeenCalledOnce() // verified once per network + URL
+  })
+
+  it('an executor built before a network switch refuses to sign after it', async () => {
+    const { useNetwork } = await import('../src/network.js')
+    const w = useWallet()
+    const fake = fakeWallet([ALICE])
+    await w.connect(fake.wallet)
+    stubChainId('testnet', 'https://rpc.example')
+    const exec = await buildExecutor('testnet', 'https://rpc.example')
+    useNetwork().setNetwork(useNetwork().network.value === 'mainnet' ? 'testnet' : 'mainnet')
+    await expect(exec.signAndExecute({} as never)).rejects.toThrow(/network changed/)
+    expect(fake.signTransaction).not.toHaveBeenCalled()
+    useNetwork().setNetwork('testnet')
+  })
+})
+
+describe('connect serialisation and disconnect', () => {
+  afterEach(() => useWallet().disconnect())
+
+  it('ignores a connect while another is in flight', async () => {
+    const w = useWallet()
+    let release!: () => void
+    const slow = fakeWallet([ALICE])
+    ;(slow.wallet as unknown as { features: Record<string, { connect: () => Promise<unknown> }> }).features['standard:connect']!.connect = () =>
+      new Promise((r) => (release = () => r({ accounts: [ALICE] })))
+    const first = w.connect(slow.wallet)
+    await w.connect(fakeWallet([BOB]).wallet) // ignored while the first prompt is open
+    release()
+    await first
+    expect(w.account.value?.address).toBe('0xa11ce')
+  })
+
+  it('a wallet whose disconnect rejects does not raise an unhandled rejection', async () => {
+    const w = useWallet()
+    const fake = fakeWallet([ALICE])
+    ;(fake.wallet as unknown as { features: Record<string, { disconnect: () => Promise<void> }> }).features['standard:disconnect']!.disconnect = async () => {
+      throw new Error('boom')
+    }
+    await w.connect(fake.wallet)
+    expect(() => w.disconnect()).not.toThrow()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(w.account.value).toBeNull()
+  })
+
+  it('a connect failure is exposed through error and rethrown', async () => {
+    const w = useWallet()
+    const bad = fakeWallet([ALICE])
+    ;(bad.wallet as unknown as { features: Record<string, { connect: () => Promise<unknown> }> }).features['standard:connect']!.connect = async () => {
+      throw new Error('User rejected the request')
+    }
+    await expect(w.connect(bad.wallet)).rejects.toThrow('User rejected')
+    expect(w.error.value).toBe('User rejected the request')
   })
 })

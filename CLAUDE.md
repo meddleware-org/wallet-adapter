@@ -35,10 +35,12 @@ separate connections.
   wallet-standard `getWallets()`; operations are feature-guarded at call time.
 - **No build step.** Ships TypeScript source; the consuming app's bundler resolves it via
   `"exports": { ".": { "default": "./src/index.ts" } }`.
-- **Feature discovery is a union.** `useWallet({ requiredFeatures })` merges each caller's
-  required features into one discovery filter (`standard:connect` is the baseline). A wallet in
-  the list can serve every tool sharing the singleton. Individual operations still guard their
-  own feature (`signPersonalMessage`, `signTransaction`) and throw a clear error if absent.
+- **Discovery lists every connectable wallet; requirements are per caller.** The shared list is
+  filtered on `standard:connect` only. `useWallet({ requiredFeatures })` filters THAT caller's
+  `wallets` list and never changes what another tool sees (a tool that needs
+  `sui:signPersonalMessage` must not make a wallet vanish from every other tool's picker).
+  Individual operations still guard their own feature (`signPersonalMessage`, `signTransaction`)
+  and throw a clear error if absent.
 
 ## Executor shape
 
@@ -63,8 +65,14 @@ signed transaction bytes via `SuiGrpcClient` (`client.executeTransaction` /
   while the wallet still exposes it). A change reporting no accounts clears the connection. The
   listener is removed on disconnect. Consumers watch `account.value?.address` to reset per-account
   state (sessions, ownership checks).
-- **Chain check.** `buildExecutor(network, …)` throws unless the account lists `sui:<network>` in
-  its wallet-standard `chains`.
+- **Chain checks.** `buildExecutor(network, …)` throws unless the account lists `sui:<network>` in
+  its wallet-standard `chains` (that is what the account SUPPORTS, not the wallet UI's active
+  network: the binding that matters is the explicit `chain` passed to `signTransaction`). It also
+  reads the RPC's chain identifier once per network + URL and refuses a mismatch (testnet
+  `4c78adac`, mainnet `35834a8a`). An executor remembers the network generation it was built in
+  and refuses to sign after `useNetwork().setNetwork` / `setLocalnetRpc` changed it.
+- **Connection errors are visible.** `WalletModal` stays open and renders `error` in a
+  `role="alert"` region; concurrent `connect` calls are ignored while one is in flight.
 - **Account binding.** An executor signs only for the account it was built with; after a
   disconnect or an account switch, `signAndExecute` throws instead of signing.
 

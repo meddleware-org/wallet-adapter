@@ -14,12 +14,16 @@ withDefaults(defineProps<{
   label: 'Connect wallet',
 })
 
-const { wallets, connect, connecting } = useWallet()
+const { wallets, connect, connecting, error } = useWallet()
 const open = ref(false)
 
 async function onSelect(w: Wallet): Promise<void> {
-  await connect(w)
-  open.value = false
+  try {
+    await connect(w)
+    open.value = false
+  } catch {
+    // The reason (a rejected prompt, a locked wallet) is in `error`; the dialog stays open and shows it.
+  }
 }
 </script>
 
@@ -31,6 +35,7 @@ async function onSelect(w: Wallet): Promise<void> {
   <UiDialog v-model:open="open" title="Select wallet" width="min(360px, 90vw)">
     <WalletSelector :wallets="wallets" @select="onSelect" />
     <p v-if="connecting" class="wm-status" role="status">Connecting…</p>
+    <p v-if="error && !connecting" class="wm-error" role="alert">{{ error }}</p>
   </UiDialog>
 </template>
 
@@ -53,6 +58,13 @@ async function onSelect(w: Wallet): Promise<void> {
 .wm-trigger:hover {
   border-color: var(--accent, #6366f1);
   color: var(--text, #fff);
+}
+
+.wm-error {
+  color: var(--danger, #f87171);
+  font-size: 0.875rem;
+  margin: 0.5rem 0 0;
+  text-align: center;
 }
 
 .wm-status {

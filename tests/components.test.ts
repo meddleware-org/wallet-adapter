@@ -36,7 +36,8 @@ vi.mock('@meddleware/ui', async () => {
   }
 })
 
-const connect = vi.hoisted(() => vi.fn(async () => {}))
+const connect = vi.hoisted(() => vi.fn<(wallet: unknown) => Promise<void>>(async () => {}))
+const walletError = vi.hoisted(() => ({ value: null as string | null }))
 vi.mock('../src/wallet.js', async () => {
   const { ref } = await import('vue')
   return {
@@ -44,6 +45,7 @@ vi.mock('../src/wallet.js', async () => {
       wallets: ref([{ name: 'Test Wallet', icon: 'data:image/png;base64,AA==' }]),
       connect,
       connecting: ref(false),
+      error: ref(walletError.value),
     }),
   }
 })
@@ -80,6 +82,27 @@ describe('WalletSelector', () => {
     expect(w.find('menu').exists()).toBe(false)
     expect(w.find('p').text()).toContain('No Sui wallet detected')
     expect(await axe(w.html(), opts)).toHaveNoViolations()
+  })
+})
+
+describe('WalletModal connection errors', () => {
+  it('stays open and shows the reason when the wallet rejects, instead of failing silently', async () => {
+    connect.mockClear()
+    connect.mockRejectedValueOnce(new Error('User rejected the request'))
+    walletError.value = 'User rejected the request'
+    try {
+      const w = mount(WalletModal, { attachTo: document.body })
+      await w.find('button.wm-trigger').trigger('click')
+      await w.find('menu button').trigger('click')
+      await nextTick()
+      await nextTick()
+      expect(w.find('dialog').exists()).toBe(true)
+      expect(w.find('[role="alert"]').text()).toContain('User rejected the request')
+      expect(await axe(w.html(), opts)).toHaveNoViolations()
+      w.unmount()
+    } finally {
+      walletError.value = null
+    }
   })
 })
 

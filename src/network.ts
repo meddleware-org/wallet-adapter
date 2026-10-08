@@ -48,6 +48,14 @@ function loadLocalnetRpc(): string {
   return (stored && isLocalUrl(stored)) ? stored : DEFAULT_LOCALNET_RPC
 }
 
+// Bumped whenever the selected network changes. An executor remembers the generation it was built
+// in and refuses to sign after a switch (it would sign for, and submit to, the old network).
+let generation = 0
+/** The current network generation (see `useNetwork().setNetwork`). */
+export function networkGeneration(): number {
+  return generation
+}
+
 // ── singleton refs ──────────────────────────────────────────────────────────────────────
 const _network    = ref<MwNetwork>(loadNetwork())
 const _localnetRpc = ref<string>(loadLocalnetRpc())
@@ -58,6 +66,7 @@ export function useNetwork() {
   )
 
   function setNetwork(n: MwNetwork): void {
+    if (_network.value !== n) generation++
     _network.value = n
     writeStored(LS_NET, n)
   }
@@ -68,6 +77,7 @@ export function useNetwork() {
         `setLocalnetRpc: localnet RPC must be http://localhost or http://127.0.0.1. Got: ${url}`,
       )
     }
+    if (_localnetRpc.value !== url) generation++
     _localnetRpc.value = url
     writeStored(LS_LOCAL, url)
   }
