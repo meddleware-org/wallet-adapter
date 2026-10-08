@@ -3,7 +3,13 @@
 All notable changes to `@meddleware/wallet-adapter` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/).
 
-## [0.0.16] - 2026-10-08
+## [0.0.17] - 2026-10-08
+
+### Fixed
+
+- The publish job ran a `build` script this source-shipping package does not have (0.0.16 never published); it publishes the changes below.
+
+## [0.0.16] - 2026-10-08 (not published)
 
 ### Fixed
 
