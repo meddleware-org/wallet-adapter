@@ -43,6 +43,14 @@ different tool views) returns the **same** connection — connect once, everythi
 ## Scripts
 
 - `npm run type-check` — `vue-tsc --noEmit`
-- `npm test` — vitest
+- `npm test` — vitest (hermetic)
+- `GRPC_TESTNET=1 npm run test:integration` — reads a real full node: the chain identifiers the executor checks
+  (testnet `4c78adac`, mainnet `35834a8a`) and the execution path `buildExecutor` uses (build → sign →
+  `executeTransaction` → `waitForTransaction`). A browser wallet cannot run headless, so the execution test
+  signs with a throwaway key. Fund it first (the testnet faucet pays into the address balance; see
+  <https://faucet.sui.io> or its `/v3` API) and pass it as `WALLET_ADAPTER_FUNDED_KEY=suiprivkey1…`, or run
+  against a local network: `GRPC_TESTNET=1 GRPC_TESTNET_NETWORK=localnet GRPC_TESTNET_URL=http://127.0.0.1:9000`
+  (`sui start --with-faucet --force-regenesis`; its faucet funds the key). Without a funded key the test
+  tries the shared faucet and may be rate-limited. No maintainer key is needed.
 
 No build step: the package ships TypeScript source, resolved by the consuming app's bundler.
