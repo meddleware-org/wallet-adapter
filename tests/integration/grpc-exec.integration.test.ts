@@ -29,12 +29,14 @@ describe.skipIf(!RUN)('gRPC execution-path (real full node)', () => {
     // Ensure the address has a gas coin. With a pre-funded key it should already; otherwise
     // best-effort faucet (shared testnet faucet is aggressively rate-limited — prefer a funded key
     // or localnet, whose faucet is unlimited).
-    let funded = (await client.core.listOwnedObjects({ owner: address })).objects.length > 0
+    // The testnet faucet now pays into the address balance, not into a gas coin object, so count the balance.
+    const hasFunds = async () => BigInt((await client.core.getBalance({ owner: address })).balance.balance) > 0n
+    let funded = await hasFunds()
     if (!funded) {
       await requestSuiFromFaucetV2({ host: getFaucetHost(NETWORK === 'localnet' ? 'localnet' : 'testnet'), recipient: address })
       for (let i = 0; i < 20 && !funded; i++) {
         await new Promise((r) => setTimeout(r, 3000))
-        funded = (await client.core.listOwnedObjects({ owner: address })).objects.length > 0
+        funded = await hasFunds()
       }
     }
     expect(funded, 'address must be funded (set WALLET_ADAPTER_FUNDED_KEY or use localnet)').toBe(true)
