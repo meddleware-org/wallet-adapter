@@ -32,6 +32,8 @@ PROXY. PLATFORM (draft, 2026-10-08) describes the environment, not this package.
   provenance attestation verified; `latest`). 0.0.14 and 0.0.15 are also on npm; 0.0.14's chain check
   was wrong and 0.0.15 replaced it (F9). 0.0.16 was tagged but never published, because its publish job
   ran a missing build script (F10); 0.0.17 carries its changes.
+- No release since (checked 2026-10-18: `latest` is still 0.0.17, published 2026-10-08T12:43Z, SLSA v1
+  attestation present; the consumers below were re-read the same day and are unchanged).
 - HEAD `1a93f9c` (2026-10-09) adds no source change after the tag: a Dependabot group (lockfile), the
   execution-suite funding fix (F11) and the README run notes.
 - One real dependency in the host: the dashboard (`^0.0.17`). Every embedded tool declares it as a peer
@@ -42,7 +44,7 @@ PROXY. PLATFORM (draft, 2026-10-08) describes the environment, not this package.
 - Chain targets: testnet is live; mainnet publication of the apps is a maintainer/mainnet item. The
   adapter holds no package ids, so it needs no republish when Move packages change.
 
-**Review date:** 2026-10-03 (first pass) · re-verified 2026-10-09
+**Review date:** 2026-10-03 (first pass) · re-verified 2026-10-09 · release status 2026-10-18
 **Reviewer:** Internal review
 **Severity ceiling:** High.
 
@@ -1009,6 +1011,10 @@ All three first-pass questions are answered; none remains open.
     0.21.32, ui 0.1.31), peer ranges, line references, Node 24, source and test counts, Section A–D.
   - **Not verified:** the execution suite was not re-run in this pass (it signs and needs a funded key);
     behaviour against specific wallet extensions (not testable headless).
+- 2026-10-18 — release status checked: no new release (`@meddleware/wallet-adapter` 0.0.17 is still `latest`, SLSA v1 provenance present;
+  tag `v0.0.17` = `0561d0b`; no source change on `main` since). Consumers re-read in `repos/*/package.json`: the dashboard and
+  the dev site at `^0.0.17`; walrus-ui, access-gate-ui, seal-ui, dao-ui, treasury-ui and token-deployer-ui as peer `>=0.0.12 <0.2.0`
+  with a `^0.0.17` devDependency. No finding or Section D box changes.
 
 ## Pre-save consistency checklist (this pass)
 
