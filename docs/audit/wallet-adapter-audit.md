@@ -1015,6 +1015,8 @@ All three first-pass questions are answered; none remains open.
   tag `v0.0.17` = `0561d0b`; no source change on `main` since). Consumers re-read in `repos/*/package.json`: the dashboard and
   the dev site at `^0.0.17`; walrus-ui, access-gate-ui, seal-ui, dao-ui, treasury-ui and token-deployer-ui as peer `>=0.0.12 <0.2.0`
   with a `^0.0.17` devDependency. No finding or Section D box changes.
+- 2026-10-19 — dependency-bot status checked (read-only): `.github/dependabot.yml` carries the `ignore` rules and the repository has no open Dependabot pull requests (`gh pr list`, 2026-10-19). Versions, findings and gates were not re-examined in this pass.
+  - Dependabot policy encoded in .github/dependabot.yml (majors declined); open PRs merged 2026-10-19
 
 ## Pre-save consistency checklist (this pass)
 
