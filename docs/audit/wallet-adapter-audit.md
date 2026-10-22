@@ -1017,6 +1017,7 @@ All three first-pass questions are answered; none remains open.
   with a `^0.0.17` devDependency. No finding or Section D box changes.
 - 2026-10-19 — dependency-bot status checked (read-only): `.github/dependabot.yml` carries the `ignore` rules and the repository has no open Dependabot pull requests (`gh pr list`, 2026-10-19). Versions, findings and gates were not re-examined in this pass.
   - Dependabot policy encoded in .github/dependabot.yml (majors declined); open PRs merged 2026-10-19
+- 2026-10-22 (audit close-out) — `vite` 8.3.5 in the lockfile (GHSA-587h-7wmj-h5pm, `launch-editor`; a transitive build/dev-server dependency, `package-lock.json` only) (commit `be62c8b`, after the `v0.0.17` tag; devDependency tree only: the published package does not ship Vite, so no version bump, and a CHANGELOG entry is not required). No disposition change. Not re-run in this pass: the tests and the build.
 
 ## Pre-save consistency checklist (this pass)
 
