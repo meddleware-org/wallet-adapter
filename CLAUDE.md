@@ -18,7 +18,7 @@ is deprecated SDK-wide, so it is not used here. Consequences:
   one copy serves the upstream Mysten SDKs, which peer on `^2.33.1`) — hence the peer range. Consumers passing `getSuiClient`'s client into data libraries must use libraries that
   accept a `SuiGrpcClient`, not JSON-RPC method shapes.
 
-It exists to let multiple tool views (`walrus-ui`, `access-gate-ui`, `seal-ui`) share **one**
+It exists to let multiple tool views (`walrus-storage-ui`, `access-gate-ui`, `sealed-storage-ui`) share **one**
 wallet connection when rendered inline in a single window (the dashboard). Before this package
 each app had its own near-identical `wallet.ts` singleton; three of them in one page meant three
 separate connections.
@@ -53,7 +53,7 @@ wait for indexing, so callers `waitForTransaction(digest)` before any dependent 
 - `signAndExecute(tx, { include })` → `{ digest, success, result }` with the typed SDK
   `TransactionResult` (`effects`, `objectTypes`, `balanceChanges`, `events`, … as requested). It does
   **not** throw on an on-chain failure — callers check `success`. This is the one executor in the
-  workspace; apps that need effects (e.g. token-deployer's publish flow) use it instead of their own
+  workspace; apps that need effects (e.g. token-issuance's publish flow) use it instead of their own
   signing code.
 - `buildExecutor(network, rpcUrl, { client })` executes and waits through the given client instead
   of the shared one (e.g. an app's own client, or a test build's stub). Signing, the chain check
@@ -90,7 +90,7 @@ The APIs used (`getWallets`, `isWalletWithRequiredFeatureSet`, `SuiGrpcClient`, 
 ## How consumers depend on it
 
 A module singleton only works as one copy. Every embeddable tool view (dao-ui, treasury-ui,
-access-gate-ui, seal-ui, walrus-ui, token-deployer-ui) declares this package as a
+access-gate-ui, sealed-storage-ui, walrus-storage-ui, token-issuance-ui) declares this package as a
 **peerDependency** `>=0.0.12 <0.2.0` (plus a matching devDependency), so the host's single copy
 satisfies all of them. A plain `^0.0.x` dependency means exactly that patch, and two tools on
 different patches nest separate copies: separate connections. The host (the dashboard) has the

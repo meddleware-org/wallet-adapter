@@ -37,8 +37,8 @@ PROXY. PLATFORM (draft, 2026-10-08) describes the environment, not this package.
 - HEAD `1a93f9c` (2026-10-09) adds no source change after the tag: a Dependabot group (lockfile), the
   execution-suite funding fix (F11) and the README run notes.
 - One real dependency in the host: the dashboard (`^0.0.17`). Every embedded tool declares it as a peer
-  `>=0.0.12 <0.2.0` with a matching `^0.0.17` devDependency: walrus-ui, access-gate-ui, seal-ui,
-  dao-ui (retired from the cluster, still published), treasury-ui, token-deployer-ui.
+  `>=0.0.12 <0.2.0` with a matching `^0.0.17` devDependency: walrus-storage-ui, access-gate-ui, sealed-storage-ui,
+  dao-ui (retired from the cluster, still published), treasury-ui, token-issuance-ui.
 - Every signature in the product passes through it: purchases, consumes, airdrops, publishes,
   uploads and gateway proofs.
 - Chain targets: testnet is live; mainnet publication of the apps is a maintainer/mainnet item. The
@@ -239,7 +239,7 @@ Critical / High / Medium / Low / Info / Positive.
 **Cross-repo evidence (read-only):**
 
 - consumers' executor use (`waitForTransaction` after `signAndExecute` in access-gate-ui,
-  walrus-ui, walrus-relay, token-deployer-ui);
+  walrus-storage-ui, walrus-relay, token-issuance-ui);
 - the `@mysten/sui` gRPC core (`executeTransaction` result shape) in `node_modules`;
 - the design-tokens contrast gate (`scripts/check-contrast.mjs`), for the colour roles the components use.
 
@@ -349,7 +349,7 @@ wallet; requirements are per caller".
 - The currently connected wallet is not re-validated against new requirements, so the list and the
   connection can disagree.
 
-**Impact:** in the dashboard, mounting one tool (for example walrus-ui's gated upload, which needs
+**Impact:** in the dashboard, mounting one tool (for example walrus-storage-ui's gated upload, which needs
 personal-message signing) can make the user's wallet vanish from the connect picker for every tool.
 That is an availability and confusion problem. The docs state the opposite.
 
@@ -462,8 +462,8 @@ the `Executor` JSDoc (`src/wallet.ts:227-244`), CLAUDE.md "Executor shape", READ
 
 - `signAndExecute` calls only `executeTransaction`. `waitForTransaction` is a separate method the
   caller must invoke.
-- Today's consumers do call it: access-gate-ui `gates.ts:112`, walrus-ui `MyBlobs.vue`, walrus-relay
-  `useAccessGate`, token-deployer-ui `deployExecutor`.
+- Today's consumers do call it: access-gate-ui `gates.ts:112`, walrus-storage-ui `MyBlobs.vue`, walrus-relay
+  `useAccessGate`, token-issuance-ui `deployExecutor`.
 - A new consumer trusting the JSDoc could read state before it is indexed.
 
 **Remediation / evidence:** wait inside `signAndExecute` (optionally opt-out), or correct the
@@ -825,7 +825,7 @@ testnet 2026-10-09 (after F11).
 
 | Path | Hermetic? | Deferred to | Tracking |
 | --- | --- | --- | --- |
-| Wallet `signTransaction` honouring `chain` | no | consumers' real-chain e2e (token-deployer-ui's injected wallet) and the wallet's own confirmation | F1 (ACCEPTED-RISK part) |
+| Wallet `signTransaction` honouring `chain` | no | consumers' real-chain e2e (token-issuance-ui's injected wallet) and the wallet's own confirmation | F1 (ACCEPTED-RISK part) |
 | gRPC execute and wait | fake client | manual harness (OPS lens: manual, dated runs) | F7 |
 | Node chain identifier format | mapped from real identifiers in a unit test | live chain-id suite | F9 |
 | Colour contrast | no | design-tokens gate (by role); real-browser gallery for these components is not set up | F14 |
@@ -1013,7 +1013,7 @@ All three first-pass questions are answered; none remains open.
     behaviour against specific wallet extensions (not testable headless).
 - 2026-10-18 — release status checked: no new release (`@meddleware/wallet-adapter` 0.0.17 is still `latest`, SLSA v1 provenance present;
   tag `v0.0.17` = `0561d0b`; no source change on `main` since). Consumers re-read in `repos/*/package.json`: the dashboard and
-  the dev site at `^0.0.17`; walrus-ui, access-gate-ui, seal-ui, dao-ui, treasury-ui and token-deployer-ui as peer `>=0.0.12 <0.2.0`
+  the dev site at `^0.0.17`; walrus-storage-ui, access-gate-ui, sealed-storage-ui, dao-ui, treasury-ui and token-issuance-ui as peer `>=0.0.12 <0.2.0`
   with a `^0.0.17` devDependency. No finding or Section D box changes.
 - 2026-10-19 — dependency-bot status checked (read-only): `.github/dependabot.yml` carries the `ignore` rules and the repository has no open Dependabot pull requests (`gh pr list`, 2026-10-19). Versions, findings and gates were not re-examined in this pass.
   - Dependabot policy encoded in .github/dependabot.yml (majors declined); open PRs merged 2026-10-19
