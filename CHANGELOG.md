@@ -3,6 +3,12 @@
 All notable changes to `@meddleware/wallet-adapter` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.0.18] - 2026-10-24
+
+### Changed
+
+- Documentation and comments use the renamed package and service names (workspace naming convention, `docs/architecture/ADR-0003-naming.md`). No code change. `@types/node` ~26.6.5 (development only).
+
 ## [0.0.17] - 2026-10-08
 
 ### Fixed
