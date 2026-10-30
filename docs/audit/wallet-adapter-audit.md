@@ -44,7 +44,7 @@ PROXY. PLATFORM (draft, 2026-10-08) describes the environment, not this package.
 - Chain targets: testnet is live; mainnet publication of the apps is a maintainer/mainnet item. The
   adapter holds no package ids, so it needs no republish when Move packages change.
 
-**Review date:** 2026-10-03 (first pass) · re-verified 2026-10-09 · release status 2026-10-18
+**Review date:** 2026-10-03 (first pass) · re-verified 2026-10-09 · release status 2026-10-18; 0.0.19 re-verified 2026-10-30 (Patch the new advisories and drop the stale allowlist entry)
 **Reviewer:** Internal review
 **Severity ceiling:** High.
 
