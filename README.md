@@ -40,6 +40,23 @@ const client = getSuiClient(NETWORK, RPC[NETWORK])
 Because the state is a module singleton, calling `useWallet()` from different components (or
 different tool views) returns the **same** connection — connect once, everything sees it.
 
+## A tool's wallet in one line
+
+```ts
+// src/wallet.ts of a tool
+import { createToolWallet } from '@meddleware/wallet-adapter'
+
+export const { useWallet, getSuiClient, buildExecutor, signAndExecute } = createToolWallet({
+  requiredFeatures: ['sui:signTransaction'], // only wallets that can sign transactions are offered to THIS tool
+})
+```
+
+`useWallet()` then gives the connection state plus `signPersonalMessage`, `signAndExecute`, `getSuiClient` and `buildExecutor`, all bound to
+the network selected at the time of the call. The connection and the network are still shared by every tool in the window.
+
+Also exported: `rpcUrlFor(network)` (the one table of endpoints), `MW_NETWORKS`, and `setSuiClientOverride(network, client)` (a stub client for
+test and end-to-end builds).
+
 ## Scripts
 
 - `npm run type-check` — `vue-tsc --noEmit`

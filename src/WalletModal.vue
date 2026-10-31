@@ -1,20 +1,29 @@
 <script setup lang="ts">
-// Single-trigger wallet connect modal: a button that opens the shared UiDialog with the wallet
-// picker inside. Uses the module singleton so connecting here reflects everywhere.
+// Single-trigger wallet connect modal: a button that opens the shared UiDialog with the wallet picker inside. Uses the module singleton,
+// so connecting here reflects everywhere. Two top-level elements (the trigger and the dialog, which renders in the browser's top layer
+// wherever it sits), so attributes are forwarded to the trigger explicitly rather than left to fall through.
 import { ref } from 'vue'
 import type { Wallet } from '@mysten/wallet-standard'
-import { UiDialog } from '@meddleware/ui'
+import { UiButton, UiDialog, UiLiveStatus, UiNotice } from '@meddleware/ui'
 import { useWallet } from './wallet.js'
 import WalletSelector from './WalletSelector.vue'
 
-withDefaults(defineProps<{
+defineOptions({ inheritAttrs: false })
+
+const props = withDefaults(defineProps<{
   /** Label shown on the trigger button */
   label?: string
+  /** Stretch the trigger to the full width of its container. */
+  block?: boolean
+  /** Wallet-standard features the tool needs (`sui:signTransaction`): a wallet without one is not offered here. */
+  requiredFeatures?: string[]
 }>(), {
   label: 'Connect wallet',
+  block: false,
+  requiredFeatures: undefined,
 })
 
-const { wallets, connect, connecting, error } = useWallet()
+const { wallets, connect, connecting, error } = useWallet(props.requiredFeatures ? { requiredFeatures: props.requiredFeatures } : {})
 const open = ref(false)
 
 async function onSelect(w: Wallet): Promise<void> {
@@ -28,49 +37,18 @@ async function onSelect(w: Wallet): Promise<void> {
 </script>
 
 <template>
-  <button type="button" class="wm-trigger" @click="open = true">
-    {{ label }}
-  </button>
+  <UiButton v-bind="$attrs" variant="ghost" :class="{ 'wm-block': block }" @click="open = true">{{ label }}</UiButton>
 
-  <UiDialog v-model:open="open" title="Select wallet" width="min(360px, 90vw)">
+  <UiDialog v-model:open="open" title="Select wallet">
     <WalletSelector :wallets="wallets" @select="onSelect" />
-    <p v-if="connecting" class="wm-status" role="status">Connecting…</p>
-    <p v-if="error && !connecting" class="wm-error" role="alert">{{ error }}</p>
+    <!-- Always mounted, so "Connecting…" is announced; an error is inserted as an alert, which is announced on arrival. -->
+    <UiLiveStatus label="Wallet connection" :message="connecting ? 'Connecting…' : ''" />
+    <UiNotice v-if="error && !connecting" type="error" :message="error" />
   </UiDialog>
 </template>
 
 <style scoped>
-.wm-trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.wm-block {
   width: 100%;
-  padding: 0.5rem 1rem;
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--muted);
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-}
-
-.wm-trigger:hover {
-  border-color: var(--accent);
-  color: var(--text);
-}
-
-.wm-error {
-  color: var(--danger);
-  font-size: 0.875rem;
-  margin: 0.5rem 0 0;
-  text-align: center;
-}
-
-.wm-status {
-  color: var(--muted);
-  font-size: 0.875rem;
-  margin: 0;
-  text-align: center;
 }
 </style>

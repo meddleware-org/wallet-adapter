@@ -21,6 +21,14 @@ const DEFAULT_RPC: Record<Exclude<MwNetwork, 'localnet'>, string> = {
   mainnet:  'https://fullnode.mainnet.sui.io:443',
 }
 const DEFAULT_LOCALNET_RPC = 'http://127.0.0.1:9000'
+
+/**
+ * The gRPC-web endpoint for `network`: the public fullnode for testnet and mainnet, and for localnet the endpoint the visitor set
+ * (`setLocalnetRpc`, default `http://127.0.0.1:9000`). For code that needs a client for a network other than the selected one.
+ */
+export function rpcUrlFor(network: MwNetwork): string {
+  return network === 'localnet' ? _localnetRpc.value : DEFAULT_RPC[network]
+}
 const LS_NET   = 'mw:network'
 const LS_LOCAL = 'mw:localnet-rpc'
 
@@ -64,11 +72,14 @@ export function networkGeneration(): number {
 const _network    = ref<MwNetwork>(loadNetwork())
 const _localnetRpc = ref<string>(loadLocalnetRpc())
 
-export function useNetwork() {
-  const rpcUrl = computed(() =>
-    _network.value === 'localnet' ? _localnetRpc.value : DEFAULT_RPC[_network.value],
-  )
+// One computed and one readonly view for the whole app: `useNetwork()` is called from many components and modules, and a fresh computed per
+// call would each re-evaluate and none could be shared.
+const _rpcUrl = computed(() => rpcUrlFor(_network.value))
+const networkView = readonly(_network)
+const rpcUrlView = readonly(_rpcUrl)
+const localnetRpcView = readonly(_localnetRpc)
 
+export function useNetwork() {
   function setNetwork(n: MwNetwork): void {
     // A JavaScript caller (or a stale stored value) must not be able to select an unknown network: its
     // rpcUrl would be undefined and the chain checks keyed on the name would mean nothing.
@@ -92,9 +103,9 @@ export function useNetwork() {
   }
 
   return {
-    network:     readonly(_network),
-    rpcUrl:      readonly(rpcUrl),
-    localnetRpc: readonly(_localnetRpc),
+    network:     networkView,
+    rpcUrl:      rpcUrlView,
+    localnetRpc: localnetRpcView,
     setNetwork,
     setLocalnetRpc,
   }

@@ -52,8 +52,21 @@ const BASELINE = ['standard:connect']
 // gRPC client (JSON-RPC is deprecated SDK-wide). `rpcUrl` is a gRPC-web endpoint, e.g.
 // https://fullnode.testnet.sui.io:443 — the default GrpcWebFetchTransport works in the browser.
 const clients = new Map<string, SuiGrpcClient>()
-/** Return a memoised {@link SuiGrpcClient} for the network + gRPC-web URL (one instance each). */
+const clientOverrides = new Map<string, SuiGrpcClient>()
+
+/**
+ * Make {@link getSuiClient} return `client` for `network` (pass `null` to clear it). For test and end-to-end builds that stub the
+ * network: gRPC-web responses are binary and cannot be faked at the fetch layer, so the client itself is replaced. Never for production.
+ */
+export function setSuiClientOverride(network: string, client: SuiGrpcClient | null): void {
+  if (client) clientOverrides.set(network, client)
+  else clientOverrides.delete(network)
+}
+
+/** Return a memoised {@link SuiGrpcClient} for the network + gRPC-web URL (one instance each), or the stub set for the network. */
 export function getSuiClient(network: string, rpcUrl: string): SuiGrpcClient {
+  const stub = clientOverrides.get(network)
+  if (stub) return stub
   if (!GRPC_NETWORKS.includes(network)) {
     throw new Error(`getSuiClient: unknown network "${network}" (expected ${GRPC_NETWORKS.join(', ')})`)
   }
@@ -379,6 +392,26 @@ export async function buildExecutor(network: string, rpcUrl: string, options: Bu
   }
 }
 
+// Readonly views are created once: `useWallet()` runs in every component that shows or needs the connection, and a new proxy (or, for a
+// feature filter, a new computed re-filtering the list) per call is wasted work. The filtered lists are cached by feature set.
+const walletsView = readonly(wallets)
+const currentWalletView = readonly(currentWallet)
+const accountView = readonly(account)
+const connectingView = readonly(connecting)
+const errorView = readonly(error)
+const filtered = new Map<string, DeepReadonly<Ref<Wallet[]>>>()
+
+function visibleWallets(needed: string[]): DeepReadonly<Ref<Wallet[]>> {
+  if (needed.length === BASELINE.length) return walletsView
+  const key = [...needed].sort().join('|')
+  let view = filtered.get(key)
+  if (!view) {
+    view = readonly(computed(() => wallets.value.filter((w) => isWalletWithRequiredFeatureSet(w, needed))))
+    filtered.set(key, view)
+  }
+  return view
+}
+
 /** Reactive connection state exposed by {@link useWallet} (all fields readonly). */
 export interface WalletState {
   wallets: DeepReadonly<Ref<Wallet[]>>
@@ -407,16 +440,13 @@ export interface UseWalletOptions {
  */
 export function useWallet(options?: UseWalletOptions) {
   init()
-  const needed = [...new Set([...BASELINE, ...(options?.requiredFeatures ?? [])])]
-  const visible = needed.length === BASELINE.length
-    ? readonly(wallets)
-    : readonly(computed(() => wallets.value.filter((w) => isWalletWithRequiredFeatureSet(w, needed))))
+  const visible = visibleWallets([...new Set([...BASELINE, ...(options?.requiredFeatures ?? [])])])
   return {
     wallets: visible,
-    currentWallet: readonly(currentWallet),
-    account: readonly(account),
-    connecting: readonly(connecting),
-    error: readonly(error),
+    currentWallet: currentWalletView,
+    account: accountView,
+    connecting: connectingView,
+    error: errorView,
     connect,
     disconnect,
     signPersonalMessage,

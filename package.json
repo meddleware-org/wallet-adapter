@@ -1,6 +1,6 @@
 {
   "name": "@meddleware/wallet-adapter",
-  "version": "0.0.19",
+  "version": "0.0.20",
   "description": "Shared Sui wallet adapter for Meddleware Vue 3 apps: a module-singleton wallet-standard composable (connect/disconnect, personal-message signing, transaction executor) so multiple tool views can share one wallet connection.",
   "author": "Meddleware <dev@meddleware.co.uk>",
   "license": "0BSD",
@@ -16,6 +16,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./testing": {
+      "types": "./src/testing.ts",
+      "default": "./src/testing.ts"
     }
   },
   "files": [
@@ -32,13 +36,16 @@
     "lint:html": "html-validate \"src/**/*.vue\""
   },
   "peerDependencies": {
-    "@meddleware/ui": "^0.1.31",
+    "@meddleware/design-tokens": "^0.1.12",
+    "@meddleware/ui": "^0.1.36",
     "@mysten/sui": "^2.33.1",
     "@mysten/wallet-standard": ">=0.21.0 <0.22",
     "vue": "^3.5.0"
   },
   "devDependencies": {
-    "@meddleware/ui": "^0.1.31",
+    "@meddleware/design-tokens": "^0.1.12",
+    "@meddleware/frontend-config": "^0.0.1",
+    "@meddleware/ui": "^0.1.36",
     "@mysten/sui": "^2.33.1",
     "@mysten/wallet-standard": "^0.21.0",
     "@types/node": "~26.6.5",
@@ -68,8 +75,9 @@
     "access": "public"
   },
   "browserslist": [
-    "> 0.5%",
-    "last 2 versions",
-    "not dead"
-  ]
+    "extends @meddleware/frontend-config/browserslist-config"
+  ],
+  "dependencies": {
+    "@meddleware/web-utils": "^0.0.1"
+  }
 }

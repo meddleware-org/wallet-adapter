@@ -42,6 +42,31 @@ separate connections.
   Individual operations still guard their own feature (`signPersonalMessage`, `signTransaction`)
   and throw a clear error if absent.
 
+## `createToolWallet`: a tool's wallet in one call
+
+Each tool used to carry its own `wallet.ts` (~30 lines): bind the singleton to the selected network, pick which wallet features it needs, re-export a subset. `createToolWallet({ requiredFeatures })` is that, once:
+
+```ts
+// src/wallet.ts of a tool
+import { createToolWallet } from '@meddleware/wallet-adapter'
+export const { useWallet, getSuiClient, buildExecutor, signAndExecute } = createToolWallet({ requiredFeatures: ['sui:signTransaction'] })
+```
+
+It returns `useWallet()` (wallets, account, connect, … plus `signPersonalMessage`, `signAndExecute`, `getSuiClient`, `buildExecutor` bound to the network selected at call time) and those functions standalone. It adds no state: the connection and the network stay module singletons, so a tool built this way still shares the connection with every other tool in the window, and its `requiredFeatures` filter only its own list of wallets.
+
+- `rpcUrlFor(network)` is the one place an endpoint is named (public fullnodes; localnet from `setLocalnetRpc`). Apps do not keep their own RPC tables.
+- `setSuiClientOverride(network, client | null)` replaces the client for a network. Test and end-to-end builds only: gRPC-web responses are binary and cannot be faked at the fetch layer, so a stub client is injected instead.
+- `useWallet()`/`useNetwork()` return the same readonly views on every call, and the per-feature wallet lists are cached by feature set: they are called from many components, so nothing is rebuilt per call.
+
+## `/testing`: the shared mock wallet
+
+`@meddleware/wallet-adapter/testing` is for component tests, end-to-end builds and screenshots; an app imports it only from its e2e entry, behind its build flag (`if (import.meta.env.MODE === 'e2e') (await import('@meddleware/wallet-adapter/testing')).installE2eWallet()`), so no other build contains it.
+
+- `createMockWallet` / `installMockWallet`: a real wallet-standard wallet registered with `getWallets()`, so the app's own discovery, picker and connect flow run unchanged. It signs with canned values unless given a `delegate`, which receives the transaction as JSON (`await tx.toJSON()`) and the chain, or the personal message as base64. Options leave out a signing feature, change the chains or make `connect` fail.
+- `createStubClient({ executed, owned })` / `okTransaction`: a stand-in for the gRPC client (gRPC-web is binary and cannot be faked at the fetch layer), installed with `setSuiClientOverride`. It covers execute, wait and list-owned-objects only; an app that calls more passes its own object.
+- `installE2eWallet`: all of it at once (wallet, stub client for testnet and mainnet, `window.__e2eAddress`, `__registerMockWallet`, `__unregisterMockWallet`). If a Playwright test exposed a Node signer (`exposeSigner` from `@meddleware/frontend-config/wallet`), the wallet signs through it, so a funded key stays in the test process.
+- The Playwright side is `connectMockWallet(page)` (opens the app's wallet dialog and picks `Test Wallet`) and `exposeSigner(page, signer)`.
+
 ## Executor shape
 
 `buildExecutor` returns `{ address, signAndExecute, waitForTransaction(digest) }`. It executes the
@@ -98,11 +123,13 @@ one real dependency. A new patch needs only the host bumped.
 
 ## UI dependency
 
-`WalletModal` renders its picker in `@meddleware/ui`'s `UiDialog` (native `<dialog>`; Escape /
-backdrop dismissal without interactive handlers on the dialog element), so `@meddleware/ui` is a
-**peer dependency** — every consuming app already provides it. There is no dependency in the other
-direction. `WalletSelector` renders the wallets as a `<menu>` of buttons (a list of commands), or a
-single `<p>` when none are installed.
+The three components are built from `@meddleware/ui` primitives and the design tokens, with no literal colours, sizes or radii: `WalletModal` is a `UiButton` that opens a `UiDialog` (native `<dialog>`) holding `WalletSelector`, `UiLiveStatus` ("Connecting…", always mounted so it is announced) and a `UiNotice type="error"`; `WalletSelector` is a `<menu>` of `UiButton`s (a list of commands) with a `UiNotice` for look-alike names or for "no wallet detected"; `WalletGuard` is a `UiCard` splash. So `@meddleware/ui` and `@meddleware/design-tokens` are **peer dependencies** (every consuming app provides them); `@meddleware/web-utils` is a dependency (`safeIcon`: a wallet's icon is bound to `<img src>` only through it). There is no dependency in the other direction.
+
+`WalletModal` has two top-level elements (the trigger and the dialog, which renders in the browser's top layer wherever it sits), so it sets `inheritAttrs: false` and forwards attributes to the trigger; `block` stretches the trigger to its container.
+
+## Testing with the real ui
+
+`@meddleware/ui` modules import their own `.css` (each component brings its CSS), which Node cannot import, so Vitest must process the UI libraries through Vite: `test.server.deps.inline: inlineMeddleware` from `@meddleware/frontend-config/vitest` (this also gives them the test's single copy of Vue, which is why tests no longer mock `@meddleware/ui`). A jsdom test that renders a dialog calls `installDialogShim()` from the same module.
 
 ## What NOT to do
 

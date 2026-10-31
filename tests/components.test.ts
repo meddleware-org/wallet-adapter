@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 // Component tests for the wallet picker + connect modal: markup semantics, behaviour and axe.
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeAll } from 'vitest'
+import { installDialogShim } from '@meddleware/frontend-config/vitest'
 import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { axe } from 'vitest-axe'
@@ -17,24 +18,7 @@ expect.extend(axeMatchers)
 HTMLCanvasElement.prototype.getContext = (() => null) as typeof HTMLCanvasElement.prototype.getContext
 const opts = { rules: { region: { enabled: false } } }
 
-// The prebuilt @meddleware/ui dist does not render under these jsdom tests (separate Vue copy);
-// UiDialog itself is covered by @meddleware/ui's own tests. Stub it with the same structure.
-vi.mock('@meddleware/ui', async () => {
-  const { defineComponent, h } = await import('vue')
-  return {
-    UiDialog: defineComponent({
-      props: { open: Boolean, title: String, width: String },
-      setup(props, { slots }) {
-        return () =>
-          props.open
-            ? h('dialog', { open: true, 'aria-labelledby': 'dlg-title' }, [
-                h('article', [h('header', [h('h2', { id: 'dlg-title' }, props.title)]), slots.default?.()]),
-              ])
-            : null
-      },
-    }),
-  }
-})
+beforeAll(installDialogShim)
 
 const connect = vi.hoisted(() => vi.fn<(wallet: unknown) => Promise<void>>(async () => {}))
 const walletError = vi.hoisted(() => ({ value: null as string | null }))
@@ -92,11 +76,11 @@ describe('WalletModal connection errors', () => {
     walletError.value = 'User rejected the request'
     try {
       const w = mount(WalletModal, { attachTo: document.body })
-      await w.find('button.wm-trigger').trigger('click')
+      await w.get('button').trigger('click')
       await w.find('menu button').trigger('click')
       await nextTick()
       await nextTick()
-      expect(w.find('dialog').exists()).toBe(true)
+      expect(w.find('dialog[open]').exists()).toBe(true)
       expect(w.find('[role="alert"]').text()).toContain('User rejected the request')
       expect(await axe(w.html(), opts)).toHaveNoViolations()
       w.unmount()
@@ -109,9 +93,9 @@ describe('WalletModal connection errors', () => {
 describe('WalletModal', () => {
   it('opens the dialog from the trigger and closes after connecting', async () => {
     const w = mount(WalletModal, { attachTo: document.body })
-    expect(w.find('dialog').exists()).toBe(false)
-    await w.find('button.wm-trigger').trigger('click')
-    expect(w.find('dialog').exists()).toBe(true)
+    expect(w.find('dialog[open]').exists()).toBe(false)
+    await w.get('button').trigger('click')
+    expect(w.find('dialog[open]').exists()).toBe(true)
     expect(w.find('h2').text()).toBe('Select wallet')
     expect(await axe(w.html(), opts)).toHaveNoViolations()
 
@@ -119,8 +103,32 @@ describe('WalletModal', () => {
     await nextTick()
     await nextTick()
     expect(connect).toHaveBeenCalledOnce()
-    expect(w.find('dialog').exists()).toBe(false)
+    expect(w.find('dialog[open]').exists()).toBe(false)
     w.unmount()
   })
 })
 
+
+describe('WalletModal as a component', () => {
+  it('forwards attributes to its trigger (it has two top-level elements, so nothing falls through by itself)', () => {
+    const w = mount(WalletModal, { attrs: { class: 'mine', 'data-testid': 'connect' }, attachTo: document.body })
+    const trigger = w.get('button')
+    expect(trigger.classes()).toContain('mine')
+    expect(trigger.attributes('data-testid')).toBe('connect')
+    w.unmount()
+  })
+
+  it('takes its label, and can stretch the trigger to its container', () => {
+    const w = mount(WalletModal, { props: { label: 'Link a wallet', block: true }, attachTo: document.body })
+    expect(w.get('button').text()).toBe('Link a wallet')
+    expect(w.get('button').classes()).toContain('wm-block')
+    expect(mount(WalletModal).get('button').classes()).not.toContain('wm-block')
+    w.unmount()
+  })
+
+  it('announces a connection in progress through an always-mounted status region', () => {
+    const w = mount(WalletModal, { attachTo: document.body })
+    expect(w.find('output').exists()).toBe(true)
+    w.unmount()
+  })
+})

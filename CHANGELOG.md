@@ -3,6 +3,10 @@
 All notable changes to `@meddleware/wallet-adapter` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.0.20] - 2026-10-31
+
+- Tool wallet factory, testing entry, components rebuilt from ui
+
 ## [0.0.19] - 2026-10-30
 
 - Patch the new advisories and drop the stale allowlist entry. No API change.
