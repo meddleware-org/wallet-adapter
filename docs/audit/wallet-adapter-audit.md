@@ -725,7 +725,7 @@ Scope: the changes since the 2026-10-19 review — `0.0.19` (advisory patches), 
 
 ### Delta notes
 - `createToolWallet` adds no state: the connection and the network stay module singletons, which is what the shared-wallet invariant (A1) requires; its `signPersonalMessage` reads `useWallet()` at call time.
-- Package contents: `src/` only (`files: ["src"]`); `testing.ts` ships by design (a subpath export, 8 kB of source) and is unreachable from `.`.
+- Package contents: `src/` only (`files: ["src"]`); `testing.ts` ships by design (a subpath export, 9 kB of source) and is unreachable from `.`.
 
 ## Section A — Invariant verification matrix
 
