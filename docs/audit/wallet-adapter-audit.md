@@ -14,13 +14,14 @@ Meddleware Vue app. It provides:
 **Project type:** TS/Vue library (ships TypeScript and SFC source; no build step).
 **Template:**
 
-- AUDIT_TEMPLATE.md (2026-10-08)
-- AUDIT_TEMPLATE_VUE.md (2026-10-08) — names wallet-adapter (its Vue components); home of the
+- AUDIT_TEMPLATE.md (2026-11-01)
+- AUDIT_TEMPLATE_VUE.md (2026-11-01) — names wallet-adapter (its Vue components); home of the
   signing UX and shared-wallet state
 - AUDIT_TEMPLATE_SUI_CLIENT.md (2026-10-08) — the executor submits transactions; chain and network
   binding
-- AUDIT_TEMPLATE_TS.md (2026-10-08)
+- AUDIT_TEMPLATE_TS.md (2026-11-01)
 - AUDIT_TEMPLATE_OPS.md (2026-10-08) — triggered by the real-chain integration harness (it signs on
+- AUDIT_TEMPLATE_A11Y.md (2026-11-01), dialog and selector components; swept in the consuming apps
   testnet with a throwaway or funded key; manual, moves a 1-MIST self-transfer)
 
 Not triggered: SUI (no Move), SEAL, WALRUS, WORKERS, RUST, GO, IMG (a library: no image), SITE, AUTH,
@@ -44,7 +45,7 @@ PROXY. PLATFORM (draft, 2026-10-08) describes the environment, not this package.
 - Chain targets: testnet is live; mainnet publication of the apps is a maintainer/mainnet item. The
   adapter holds no package ids, so it needs no republish when Move packages change.
 
-**Review date:** 2026-10-03 (first pass) · re-verified 2026-10-09 · release status 2026-10-18; 0.0.19 re-verified 2026-10-30 (Patch the new advisories and drop the stale allowlist entry); 0.0.20 re-verified 2026-10-31 (Tool wallet factory, testing entry, components rebuilt from ui)
+**Review date:** 2026-10-03 (first pass) · re-verified 2026-10-09 · release status 2026-10-18; 0.0.19 released 2026-10-30 (Patch the new advisories and drop the stale allowlist entry); 0.0.20 released 2026-10-31 (Tool wallet factory, testing entry, components rebuilt from ui); frontend-wave delta review 2026-11-01 (real review of the 2026-10-19 → 2026-11-01 changes; see the delta section)
 **Reviewer:** Internal review
 **Severity ceiling:** High.
 
@@ -174,6 +175,8 @@ plus two manual integration suites (chain identifier, gRPC execution).
   finding and in the re-verification log.
 
 ---
+
+**2026-11-01 update.** Between 0.0.18 and 0.0.20 the package gained the `createToolWallet` factory and a `/testing` entry with the shared mock wallet. This review found that the test-only client override was still exported from the production entry; it now lives in `/testing` only (F15, 0.0.21). The wallet dialog is swept at AA/AAA in the four wallet apps (F17).
 
 ## Threat model / trust boundaries
 
@@ -699,6 +702,31 @@ cross-repo follow-up (add `WalletSelector` / `WalletModal` to the ui component g
 
 ---
 
+### Frontend wave delta review (2026-11-01) — 0.0.19 and 0.0.20 reviewed, 0.0.21 prepared
+
+Scope: the changes since the 2026-10-19 review — `0.0.19` (advisory patches), `0.0.20` (the `createToolWallet` factory, the `/testing` entry with the shared mock wallet and stub client, the picker and dialog components rebuilt from `@meddleware/ui`, shared readonly views). Read: `src/wallet.ts`, `src/network.ts`, `src/tool-wallet.ts`, `src/testing.ts`, the three components, the tests, the workflows. Ran: `npm ci`, the audit gate (0 high/critical, allowlist empty), `vue-tsc`, lint (stylelint, eslint, html-validate), `vitest` (7 files, 74 tests), `npm pack --dry-run`; and read how the four wallet apps use the package (their e2e builds, entry files and sweeps).
+
+### F15 — The test-only client override was part of the production API
+**Severity:** Low   **Disposition:** RESOLVED
+**Where:** `src/index.ts` (`export { …, setSuiClientOverride } from './wallet.js'`), `src/wallet.ts`.
+**Issue:** `setSuiClientOverride(network, client)` makes `getSuiClient` return a caller-supplied client. Its comment says "Never for production", and the only users are the `/testing` entry and tests (no app imports it: checked with a repository-wide search), yet it was exported from the production entry beside `getSuiClient`. That contradicts the base rule that a test-only mode cannot be enabled in a production build (§B.2) and the VUE lens requirement that test hooks sit behind a dedicated entry.
+**Impact:** any code in a production bundle (a dependency, an injected script that already runs in the page) could swap the chain client a signing app reads its state through. The same code could equally call the wallet directly, so the gain is small; but it is a reachable hook that has no reason to exist outside tests, in the package every wallet app shares.
+**Remediation / evidence:** removed from `src/index.ts`; exported from `src/testing.ts` instead (the `./testing` subpath), which an app imports only from its e2e entry behind the mode-and-flag condition. The memo `getSuiClient` consults stays in `wallet.ts` and is empty unless an e2e build fills it. `tests/testing.test.ts` asserts the production entry exports neither the override nor any mock-wallet function and the testing entry exports the override. README and CLAUDE.md updated. 0.0.21 (a breaking change for a caller of the old name — none exists; patch-only policy).
+
+### F16 — Positive: the mock wallet keeps keys out of the page
+**Severity:** Positive
+**Where:** `src/testing.ts` (`installE2eWallet`), `@meddleware/frontend-config/wallet` (`exposeSigner`).
+**Evidence:** the mock is a real wallet-standard wallet, registered through `getWallets()`, so the app's own discovery and connect flow run unchanged; its signing is canned unless a delegate is supplied; the Playwright helper exposes functions that sign in the Node process (`__e2eSignTransaction`, `__e2eSignPersonalMessage`), so a funded test key never enters the page. The window hooks it sets (`__e2eAddress`, `__registerMockWallet`, `__unregisterMockWallet`) are the markers `check-prod-bundle` (frontend-config 0.0.2) scans a production build for.
+
+### F17 — Positive: the wallet dialog and picker are swept in every wallet app
+**Severity:** Positive
+**Where:** `WalletModal.vue`, `WalletSelector.vue`, `WalletGuard.vue`.
+**Evidence:** the dialog is the shared native `<dialog>` (`UiDialog`), the status line is an always-mounted live region, errors arrive as alerts; the apps' a11y specs open it (`'wallet dialog'` state in access-gate-ui, walrus-storage-ui, sealed-storage-ui, token-issuance-ui) and sweep it at AA and AAA in every theme × season, at 320 px, 200% text, in forced colours and by keyboard (A11Y lens). The picker still warns when two wallets share a name (F-series above) and filters by required features per tool.
+
+### Delta notes
+- `createToolWallet` adds no state: the connection and the network stay module singletons, which is what the shared-wallet invariant (A1) requires; its `signPersonalMessage` reads `useWallet()` at call time.
+- Package contents: `src/` only (`files: ["src"]`); `testing.ts` ships by design (a subpath export, 8 kB of source) and is unreachable from `.`.
+
 ## Section A — Invariant verification matrix
 
 | # | Invariant (source) | Enforced at | Proven by | Status |
@@ -1018,6 +1046,7 @@ All three first-pass questions are answered; none remains open.
 - 2026-10-19 — dependency-bot status checked (read-only): `.github/dependabot.yml` carries the `ignore` rules and the repository has no open Dependabot pull requests (`gh pr list`, 2026-10-19). Versions, findings and gates were not re-examined in this pass.
   - Dependabot policy encoded in .github/dependabot.yml (majors declined); open PRs merged 2026-10-19
 - 2026-10-22 (audit close-out) — `vite` 8.3.5 in the lockfile (GHSA-587h-7wmj-h5pm, `launch-editor`; a transitive build/dev-server dependency, `package-lock.json` only) (commit `be62c8b`, after the `v0.0.17` tag; devDependency tree only: the published package does not ship Vite, so no version bump, and a CHANGELOG entry is not required). No disposition change. Not re-run in this pass: the tests and the build.
+- 2026-11-01 — frontend-wave delta review of 0.0.19–0.0.20 (and 0.0.21 prepared). Read the wallet, network, tool-wallet and testing sources and the components; ran the audit gate, type-check, lint, 74 tests and pack contents; traced every user of the client override. Found and fixed F15 (the test-only `setSuiClientOverride` was exported from the production entry; now `/testing` only); F16 and F17 recorded as Positive. Release-tool marks for 0.0.19/0.0.20 reworded to "released". `**Template:**` dates reconciled to the 2026-11-01 registry (VUE colour row moved to A11Y, applied by reference to the consuming apps) with no disposition change.
 
 ## Pre-save consistency checklist (this pass)
 

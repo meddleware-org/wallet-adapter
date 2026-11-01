@@ -187,3 +187,14 @@ describe('installE2eWallet', () => {
     expect(tool.getSuiClient('testnet')).toBe(before)
   })
 })
+
+describe('entries', () => {
+  it('keeps the client override out of the production entry and in the testing entry', async () => {
+    const entry = await import('../src/index.js')
+    const testing = await import('../src/testing.js')
+    expect('setSuiClientOverride' in entry).toBe(false)
+    expect(typeof testing.setSuiClientOverride).toBe('function')
+    expect('installE2eWallet' in entry).toBe(false)
+    expect('createMockWallet' in entry).toBe(false)
+  })
+})

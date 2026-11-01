@@ -55,7 +55,7 @@ export const { useWallet, getSuiClient, buildExecutor, signAndExecute } = create
 It returns `useWallet()` (wallets, account, connect, … plus `signPersonalMessage`, `signAndExecute`, `getSuiClient`, `buildExecutor` bound to the network selected at call time) and those functions standalone. It adds no state: the connection and the network stay module singletons, so a tool built this way still shares the connection with every other tool in the window, and its `requiredFeatures` filter only its own list of wallets.
 
 - `rpcUrlFor(network)` is the one place an endpoint is named (public fullnodes; localnet from `setLocalnetRpc`). Apps do not keep their own RPC tables.
-- `setSuiClientOverride(network, client | null)` replaces the client for a network. Test and end-to-end builds only: gRPC-web responses are binary and cannot be faked at the fetch layer, so a stub client is injected instead.
+- `setSuiClientOverride(network, client | null)` replaces the client for a network. Exported from `/testing`, not from the production entry (0.0.21). Test and end-to-end builds only: gRPC-web responses are binary and cannot be faked at the fetch layer, so a stub client is injected instead.
 - `useWallet()`/`useNetwork()` return the same readonly views on every call, and the per-feature wallet lists are cached by feature set: they are called from many components, so nothing is rebuilt per call.
 
 ## `/testing`: the shared mock wallet

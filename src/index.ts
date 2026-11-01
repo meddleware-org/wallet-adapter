@@ -4,7 +4,7 @@
 // wallet connection. Network-agnostic: callers pass their resolved RPC URL. Wallet-agnostic:
 // works with any wallet-standard extension.
 
-export { useWallet, getSuiClient, buildExecutor, setSuiClientOverride } from './wallet.js'
+export { useWallet, getSuiClient, buildExecutor } from './wallet.js'
 export { createToolWallet } from './tool-wallet.js'
 export type { ToolWallet, ToolWalletOptions } from './tool-wallet.js'
 export type {

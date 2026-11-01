@@ -3,6 +3,12 @@
 All notable changes to `@meddleware/wallet-adapter` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.0.21] - 2026-11-01
+
+### Changed
+
+- `setSuiClientOverride` is exported from `@meddleware/wallet-adapter/testing` only, no longer from the production entry (it is a test and end-to-end hook; no app used it from `.`).
+
 ## [0.0.20] - 2026-10-31
 
 - Tool wallet factory, testing entry, components rebuilt from ui

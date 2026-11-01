@@ -13,6 +13,10 @@ import { toBase64 } from '@mysten/sui/utils'
 import type { Transaction } from '@mysten/sui/transactions'
 import { setSuiClientOverride } from './wallet.js'
 
+// The client override belongs to the test entry only: the production entry (`.`) does not export it, so application code cannot reach it
+// by name (the memo it fills is consulted by `getSuiClient` and is empty unless an end-to-end build installed a stub).
+export { setSuiClientOverride }
+
 /** The address the mock wallet connects with unless told otherwise. */
 export const MOCK_ADDRESS = `0x${'a'.repeat(64)}`
 

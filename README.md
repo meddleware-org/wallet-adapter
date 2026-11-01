@@ -54,8 +54,8 @@ export const { useWallet, getSuiClient, buildExecutor, signAndExecute } = create
 `useWallet()` then gives the connection state plus `signPersonalMessage`, `signAndExecute`, `getSuiClient` and `buildExecutor`, all bound to
 the network selected at the time of the call. The connection and the network are still shared by every tool in the window.
 
-Also exported: `rpcUrlFor(network)` (the one table of endpoints), `MW_NETWORKS`, and `setSuiClientOverride(network, client)` (a stub client for
-test and end-to-end builds).
+Also exported: `rpcUrlFor(network)` (the one table of endpoints) and `MW_NETWORKS`. `setSuiClientOverride(network, client)` (a stub client for
+test and end-to-end builds) is exported from `@meddleware/wallet-adapter/testing` only, not from the production entry.
 
 ## Scripts
 
