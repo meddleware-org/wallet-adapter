@@ -702,7 +702,7 @@ cross-repo follow-up (add `WalletSelector` / `WalletModal` to the ui component g
 
 ---
 
-### Frontend wave delta review (2026-11-01) — 0.0.19 and 0.0.20 reviewed, 0.0.21 prepared
+### Frontend wave delta review (2026-11-01) — 0.0.19 and 0.0.20 reviewed, 0.0.21 released 2026-11-05
 
 Scope: the changes since the 2026-10-19 review — `0.0.19` (advisory patches), `0.0.20` (the `createToolWallet` factory, the `/testing` entry with the shared mock wallet and stub client, the picker and dialog components rebuilt from `@meddleware/ui`, shared readonly views). Read: `src/wallet.ts`, `src/network.ts`, `src/tool-wallet.ts`, `src/testing.ts`, the three components, the tests, the workflows. Ran: `npm ci`, the audit gate (0 high/critical, allowlist empty), `vue-tsc`, lint (stylelint, eslint, html-validate), `vitest` (7 files, 74 tests), `npm pack --dry-run`; and read how the four wallet apps use the package (their e2e builds, entry files and sweeps).
 
@@ -1046,7 +1046,7 @@ All three first-pass questions are answered; none remains open.
 - 2026-10-19 — dependency-bot status checked (read-only): `.github/dependabot.yml` carries the `ignore` rules and the repository has no open Dependabot pull requests (`gh pr list`, 2026-10-19). Versions, findings and gates were not re-examined in this pass.
   - Dependabot policy encoded in .github/dependabot.yml (majors declined); open PRs merged 2026-10-19
 - 2026-10-22 (audit close-out) — `vite` 8.3.5 in the lockfile (GHSA-587h-7wmj-h5pm, `launch-editor`; a transitive build/dev-server dependency, `package-lock.json` only) (commit `be62c8b`, after the `v0.0.17` tag; devDependency tree only: the published package does not ship Vite, so no version bump, and a CHANGELOG entry is not required). No disposition change. Not re-run in this pass: the tests and the build.
-- 2026-11-01 — frontend-wave delta review of 0.0.19–0.0.20 (and 0.0.21 prepared). Read the wallet, network, tool-wallet and testing sources and the components; ran the audit gate, type-check, lint, 74 tests and pack contents; traced every user of the client override. Found and fixed F15 (the test-only `setSuiClientOverride` was exported from the production entry; now `/testing` only); F16 and F17 recorded as Positive. Release-tool marks for 0.0.19/0.0.20 reworded to "released". `**Template:**` dates reconciled to the 2026-11-01 registry (VUE colour row moved to A11Y, applied by reference to the consuming apps) with no disposition change.
+- 2026-11-01 — frontend-wave delta review of 0.0.19–0.0.20 (and 0.0.21 released 2026-11-05). Read the wallet, network, tool-wallet and testing sources and the components; ran the audit gate, type-check, lint, 74 tests and pack contents; traced every user of the client override. Found and fixed F15 (the test-only `setSuiClientOverride` was exported from the production entry; now `/testing` only); F16 and F17 recorded as Positive. Release-tool marks for 0.0.19/0.0.20 reworded to "released". `**Template:**` dates reconciled to the 2026-11-01 registry (VUE colour row moved to A11Y, applied by reference to the consuming apps) with no disposition change.
 
 ## Pre-save consistency checklist (this pass)
 
