@@ -77,6 +77,9 @@ const _localnetRpc = ref<string>(loadLocalnetRpc())
 const _rpcUrl = computed(() => rpcUrlFor(_network.value))
 const networkView = readonly(_network)
 const rpcUrlView = readonly(_rpcUrl)
+// SuiVision has no localnet, and nothing of ours is deployed there, so a localnet entity links to the testnet explorer, where it is inert.
+const _explorerNetwork = computed<'mainnet' | 'testnet'>(() => (_network.value === 'mainnet' ? 'mainnet' : 'testnet'))
+const explorerNetworkView = readonly(_explorerNetwork)
 const localnetRpcView = readonly(_localnetRpc)
 
 export function useNetwork() {
@@ -105,8 +108,19 @@ export function useNetwork() {
   return {
     network:     networkView,
     rpcUrl:      rpcUrlView,
+    /** The network as the block-explorer links know it (`mainnet`, otherwise `testnet`). */
+    explorerNetwork: explorerNetworkView,
     localnetRpc: localnetRpcView,
     setNetwork,
     setLocalnetRpc,
   }
+}
+
+/**
+ * A standalone build targets one network (its `VITE_NETWORK`): select it in the shared selector so the client, the ids, the explorer links
+ * and the status bar all agree. Only `testnet` and `mainnet` are built for; anything else (unset, a typo) leaves the stored choice alone.
+ * Embedded in the dashboard the host's selector rules and this is not called.
+ */
+export function selectBuiltNetwork(built: string | undefined): void {
+  if (built === 'testnet' || built === 'mainnet') useNetwork().setNetwork(built)
 }

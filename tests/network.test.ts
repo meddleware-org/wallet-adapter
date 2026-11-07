@@ -47,3 +47,32 @@ describe('useNetwork validation', () => {
     expect(net.rpcUrl.value).toBe('https://fullnode.testnet.sui.io:443')
   })
 })
+
+describe('explorerNetwork and selectBuiltNetwork', () => {
+  const noStorage = () => vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {} })
+
+  it('maps the selected network to the one the explorer links know: mainnet, otherwise testnet', async () => {
+    noStorage()
+    const { useNetwork } = await import('../src/network.js')
+    const net = useNetwork()
+    expect(net.explorerNetwork.value).toBe('testnet')
+    net.setNetwork('mainnet')
+    expect(net.explorerNetwork.value).toBe('mainnet')
+    net.setNetwork('localnet')
+    expect(net.explorerNetwork.value).toBe('testnet')
+  })
+
+  it('selects the network a build targets and leaves the choice alone for anything else', async () => {
+    noStorage()
+    const { useNetwork, selectBuiltNetwork } = await import('../src/network.js')
+    const net = useNetwork()
+    selectBuiltNetwork('mainnet')
+    expect(net.network.value).toBe('mainnet')
+    selectBuiltNetwork(undefined)
+    selectBuiltNetwork('localnet')
+    selectBuiltNetwork('typo')
+    expect(net.network.value).toBe('mainnet')
+    selectBuiltNetwork('testnet')
+    expect(net.network.value).toBe('testnet')
+  })
+})

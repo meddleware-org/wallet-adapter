@@ -17,7 +17,7 @@ export type {
   UseWalletOptions,
 } from './wallet.js'
 
-export { useNetwork, rpcUrlFor, MW_NETWORKS } from './network.js'
+export { useNetwork, rpcUrlFor, selectBuiltNetwork, MW_NETWORKS } from './network.js'
 export type { MwNetwork } from './network.js'
 
 export { default as WalletSelector } from './WalletSelector.vue'

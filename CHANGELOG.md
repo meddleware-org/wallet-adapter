@@ -3,6 +3,12 @@
 All notable changes to `@meddleware/wallet-adapter` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.0.22] - 2026-11-07
+
+### Added
+
+- `useNetwork().explorerNetwork` (the network as block-explorer links know it) and `selectBuiltNetwork(built)` (a standalone build selects its `VITE_NETWORK`), so the tool apps stop carrying their own copies.
+
 ## [0.0.21] - 2026-11-01
 
 ### Changed
