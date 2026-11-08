@@ -886,7 +886,7 @@ testnet 2026-10-09 (after F11).
 - [x] executors invalidated on a network switch — F1 (0.0.14)
 - [x] the gRPC harness: manual by the OPS lens, runs recorded (replaces "scheduled in CI") — F7, C.1
 - [x] duplicate-wallet warning — F4 (0.0.16)
-- [ ] external review — maintainer item (`OPERATOR_TASKS.md` "Funding, grants and an external audit — after launch")
+- [ ] external review (ADR-0009 gate G4: not a launch gate; covered by redeploy and the audit pass) — maintainer item (`OPERATOR_TASKS.md` "Funding, grants and an external audit — after launch")
 - [ ] mainnet chain-id constant confirmed against a mainnet run of a consuming app — mainnet item; the constant matches the live mainnet node today (chain-id suite), the first mainnet signing run is the end-to-end proof
 - [x] optional hardenings S5 (harness chain-id guard), S6 (`Object.hasOwn`), S7 (components in the ui gallery) — recorded as ACCEPTED-RISK with reasons (F12–F14); not gating
 
