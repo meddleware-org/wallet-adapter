@@ -44,7 +44,7 @@
   },
   "devDependencies": {
     "@meddleware/design-tokens": "^0.1.13",
-    "@meddleware/frontend-config": "^0.0.7",
+    "@meddleware/frontend-config": "^0.0.8",
     "@meddleware/ui": "^0.1.40",
     "@mysten/sui": "^2.33.1",
     "@mysten/wallet-standard": "^0.21.0",
@@ -78,6 +78,6 @@
     "extends @meddleware/frontend-config/browserslist-config"
   ],
   "dependencies": {
-    "@meddleware/web-utils": "^0.0.3"
+    "@meddleware/web-utils": "^0.0.4"
   }
 }
