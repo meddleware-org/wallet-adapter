@@ -3,7 +3,7 @@
 All notable changes to `@meddleware/wallet-adapter` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.0.25] - 2026-11-19
 
 ### Changed
 
