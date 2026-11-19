@@ -76,3 +76,43 @@ describe('explorerNetwork and selectBuiltNetwork', () => {
     expect(net.network.value).toBe('testnet')
   })
 })
+
+describe('setRpcUrl (an operator full node)', () => {
+  it('uses the configured full node for its network only, and the public one again on null', async () => {
+    const { useNetwork, rpcUrlFor, networkGeneration } = await import('../src/network.js')
+    const net = useNetwork()
+    net.setNetwork('testnet')
+    expect(rpcUrlFor('testnet')).toBe('https://fullnode.testnet.sui.io:443')
+    const g = networkGeneration()
+    net.setRpcUrl('testnet', 'https://sui.example:443')
+    expect(rpcUrlFor('testnet')).toBe('https://sui.example:443')
+    expect(net.rpcUrl.value).toBe('https://sui.example:443')
+    expect(rpcUrlFor('mainnet')).toBe('https://fullnode.mainnet.sui.io:443')
+    // A change on the selected network starts a new generation (a payment built before it is not signed).
+    expect(networkGeneration()).toBe(g + 1)
+    // The same value again, or a change on another network, does not.
+    net.setRpcUrl('testnet', 'https://sui.example:443')
+    net.setRpcUrl('mainnet', 'https://sui-main.example')
+    expect(networkGeneration()).toBe(g + 1)
+    net.setRpcUrl('testnet', null)
+    expect(rpcUrlFor('testnet')).toBe('https://fullnode.testnet.sui.io:443')
+  })
+
+  it('refuses anything but an https URL without credentials, query or fragment, and localnet', async () => {
+    const { useNetwork, isAllowedRpcOverride } = await import('../src/network.js')
+    const net = useNetwork()
+    for (const bad of ['http://sui.example', 'https://user:pw@sui.example', 'https://sui.example/?k=1', 'https://sui.example/#x', 'sui.example', 'javascript:alert(1)']) {
+      expect(isAllowedRpcOverride(bad)).toBe(false)
+      expect(() => net.setRpcUrl('testnet', bad)).toThrow(/https URL/)
+    }
+    expect(() => net.setRpcUrl('localnet' as never, 'https://sui.example')).toThrow(/only testnet and mainnet/)
+  })
+
+  it('is never written to storage', async () => {
+    const store: Record<string, string> = {}
+    vi.stubGlobal('localStorage', { getItem: (k: string) => store[k] ?? null, setItem: (k: string, v: string) => { store[k] = v } })
+    const { useNetwork } = await import('../src/network.js')
+    useNetwork().setRpcUrl('mainnet', 'https://sui-main.example')
+    expect(Object.values(store).join(' ')).not.toContain('sui-main.example')
+  })
+})

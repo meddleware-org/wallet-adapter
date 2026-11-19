@@ -27,7 +27,21 @@ const DEFAULT_LOCALNET_RPC = 'http://127.0.0.1:9000'
  * (`setLocalnetRpc`, default `http://127.0.0.1:9000`). For code that needs a client for a network other than the selected one.
  */
 export function rpcUrlFor(network: MwNetwork): string {
-  return network === 'localnet' ? _localnetRpc.value : DEFAULT_RPC[network]
+  return network === 'localnet' ? _localnetRpc.value : (_rpcOverrides.value[network] ?? DEFAULT_RPC[network])
+}
+
+/**
+ * An operator's full node for testnet or mainnet: an https URL with no credentials, query or fragment (the gRPC-web endpoint, usually
+ * an origin such as `https://fullnode.example:443`). Anything else is refused, so a configuration value can never point the wallet at
+ * plain http or carry a secret in the URL.
+ */
+export function isAllowedRpcOverride(url: string): boolean {
+  try {
+    const u = new URL(url)
+    return u.protocol === 'https:' && !u.username && !u.password && !u.search && !u.hash && !!u.hostname
+  } catch {
+    return false
+  }
 }
 const LS_NET   = 'mw:network'
 const LS_LOCAL = 'mw:localnet-rpc'
@@ -71,6 +85,8 @@ export function networkGeneration(): number {
 // ── singleton refs ──────────────────────────────────────────────────────────────────────
 const _network    = ref<MwNetwork>(loadNetwork())
 const _localnetRpc = ref<string>(loadLocalnetRpc())
+// Operator overrides of the public full nodes (`setRpcUrl`): kept for this page only, never in storage, so a visitor cannot set one.
+const _rpcOverrides = ref<Partial<Record<Exclude<MwNetwork, 'localnet'>, string>>>({})
 
 // One computed and one readonly view for the whole app: `useNetwork()` is called from many components and modules, and a fresh computed per
 // call would each re-evaluate and none could be shared.
@@ -105,6 +121,27 @@ export function useNetwork() {
     writeStored(LS_LOCAL, url)
   }
 
+  /**
+   * Use the operator's full node for `network` (testnet or mainnet) instead of the public one, or the public one again with `null`.
+   * The deployment's configuration calls this before the wallet is used (Link in Bio: the instance's `suiRpcUrl`); the URL must pass
+   * {@link isAllowedRpcOverride}. A change on the selected network starts a new network generation, so a payment built before it is
+   * not signed against the new node. The wallet still checks the node serves the network's chain before signing.
+   */
+  function setRpcUrl(network: Exclude<MwNetwork, 'localnet'>, url: string | null): void {
+    if (network !== 'testnet' && network !== 'mainnet') {
+      throw new Error(`setRpcUrl: only testnet and mainnet take a configured full node (got "${String(network)}")`)
+    }
+    if (url !== null && !isAllowedRpcOverride(url)) {
+      throw new Error(`setRpcUrl: the full node must be an https URL without credentials, query or fragment. Got: ${url}`)
+    }
+    const before = rpcUrlFor(network)
+    const next = { ..._rpcOverrides.value }
+    if (url === null) delete next[network]
+    else next[network] = url
+    _rpcOverrides.value = next
+    if (_network.value === network && rpcUrlFor(network) !== before) generation++
+  }
+
   return {
     network:     networkView,
     rpcUrl:      rpcUrlView,
@@ -113,6 +150,7 @@ export function useNetwork() {
     localnetRpc: localnetRpcView,
     setNetwork,
     setLocalnetRpc,
+    setRpcUrl,
   }
 }
 

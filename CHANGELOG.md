@@ -3,6 +3,15 @@
 All notable changes to `@meddleware/wallet-adapter` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.0.24] - 2026-11-19
+
+### Added
+
+- `useNetwork().setRpcUrl(network, url | null)`: an operator's full node for testnet or mainnet instead of the public one
+  (https only, no credentials, query or fragment; `isAllowedRpcOverride` is exported). It is kept for the page, never
+  stored, so a visitor cannot set one; a change on the selected network starts a new network generation, and the wallet
+  still checks the node serves the network's chain before signing.
+
 ## [0.0.23] - 2026-11-12
 
 ### Changed
