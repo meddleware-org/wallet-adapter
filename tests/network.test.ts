@@ -15,6 +15,7 @@ describe('useNetwork with unavailable browser storage', () => {
         throw new DOMException('blocked', 'SecurityError')
       },
     }
+    vi.stubGlobal('sessionStorage', blocked)
     vi.stubGlobal('localStorage', blocked)
     const { useNetwork } = await import('../src/network.js')
     const net = useNetwork()
@@ -29,11 +30,48 @@ describe('useNetwork with unavailable browser storage', () => {
       ['mw:network', 'evilnet'],
       ['mw:localnet-rpc', 'https://attacker.example'],
     ])
-    vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: () => {} })
+    vi.stubGlobal('sessionStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: () => {} })
     const { useNetwork } = await import('../src/network.js')
     const net = useNetwork()
     expect(net.network.value).toBe('testnet')
     expect(net.localnetRpc.value).toBe('http://127.0.0.1:9000')
+  })
+})
+
+describe('where the selection is kept (STORAGE_LEDGER B4)', () => {
+  const memory = () => {
+    const m = new Map<string, string>()
+    return { m, s: { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) } }
+  }
+
+  it('keeps it for the tab (sessionStorage), never in localStorage, and removes the old localStorage keys', async () => {
+    const session = memory()
+    const local = memory()
+    local.m.set('mw:network', 'mainnet')
+    local.m.set('mw:localnet-rpc', 'http://127.0.0.1:9123')
+    vi.stubGlobal('sessionStorage', session.s)
+    vi.stubGlobal('localStorage', local.s)
+    const { useNetwork } = await import('../src/network.js')
+    const net = useNetwork()
+    expect(local.m.size).toBe(0)
+    expect(net.network.value).toBe('testnet')
+    net.setNetwork('mainnet')
+    expect(session.m.get('mw:network')).toBe('mainnet')
+    expect(local.m.size).toBe(0)
+  })
+
+  it('opens on the network a link names, and ignores an unknown one', async () => {
+    const session = memory()
+    vi.stubGlobal('sessionStorage', session.s)
+    vi.stubGlobal('localStorage', memory().s)
+    vi.stubGlobal('location', { search: '?tab=x&network=mainnet' })
+    let { useNetwork } = await import('../src/network.js')
+    expect(useNetwork().network.value).toBe('mainnet')
+    vi.resetModules()
+    vi.stubGlobal('sessionStorage', memory().s)
+    vi.stubGlobal('location', { search: '?network=evilnet' })
+    ;({ useNetwork } = await import('../src/network.js'))
+    expect(useNetwork().network.value).toBe('testnet')
   })
 })
 
@@ -49,7 +87,10 @@ describe('useNetwork validation', () => {
 })
 
 describe('explorerNetwork and selectBuiltNetwork', () => {
-  const noStorage = () => vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {} })
+  const noStorage = () => {
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {}, removeItem: () => {} })
+    vi.stubGlobal('sessionStorage', { getItem: () => null, setItem: () => {}, removeItem: () => {} })
+  }
 
   it('maps the selected network to the one the explorer links know: mainnet, otherwise testnet', async () => {
     noStorage()
@@ -110,7 +151,9 @@ describe('setRpcUrl (an operator full node)', () => {
 
   it('is never written to storage', async () => {
     const store: Record<string, string> = {}
-    vi.stubGlobal('localStorage', { getItem: (k: string) => store[k] ?? null, setItem: (k: string, v: string) => { store[k] = v } })
+    const s = { getItem: (k: string) => store[k] ?? null, setItem: (k: string, v: string) => { store[k] = v }, removeItem: () => {} }
+    vi.stubGlobal('localStorage', s)
+    vi.stubGlobal('sessionStorage', s)
     const { useNetwork } = await import('../src/network.js')
     useNetwork().setRpcUrl('mainnet', 'https://sui-main.example')
     expect(Object.values(store).join(' ')).not.toContain('sui-main.example')

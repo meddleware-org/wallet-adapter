@@ -1,6 +1,8 @@
-// Runtime network selector singleton. Persists the chosen network + localnet RPC URL in
-// localStorage so the selection survives page reloads. Shared across all tool views rendered
-// in the same window — the same module singleton pattern as wallet.ts.
+// Runtime network selector singleton. Keeps the chosen network and localnet RPC URL in sessionStorage, so the selection survives
+// reloads and in-app navigation for this tab and goes when the tab closes: a session record of a selection the person made, which is
+// strictly necessary storage (PECR Sch. A1 para 4(e); workspace docs/legal STORAGE_LEDGER B4). Earlier versions used localStorage;
+// those keys are removed on load. A link may carry `?network=<testnet|mainnet|localnet>` to open on a network (read once, at load).
+// Shared across all tool views rendered in the same window — the same module singleton pattern as wallet.ts.
 import { computed, readonly, ref } from 'vue'
 
 /** `http://localhost` or `http://127.0.0.1` (any port/path): the only plain-http endpoint accepted, for local dev. */
@@ -50,7 +52,7 @@ const LS_LOCAL = 'mw:localnet-rpc'
 // frames): a read or write failure must never break the app — the selection simply is not kept.
 function readStored(key: string): string | null {
   try {
-    return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null
+    return typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(key) : null
   } catch {
     return null
   }
@@ -58,15 +60,47 @@ function readStored(key: string): string | null {
 
 function writeStored(key: string, value: string): void {
   try {
-    if (typeof localStorage !== 'undefined') localStorage.setItem(key, value)
+    if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(key, value)
   } catch {
-    // Not persisted; the in-memory selection still applies for this page.
+    // Not kept; the in-memory selection still applies for this page.
+  }
+}
+
+/** Remove what versions before the move to sessionStorage left in localStorage (nothing reads it any more). */
+function forgetLegacyStorage(): void {
+  try {
+    if (typeof localStorage === 'undefined') return
+    localStorage.removeItem(LS_NET)
+    localStorage.removeItem(LS_LOCAL)
+  } catch {
+    // Storage blocked: there is nothing we could have written either.
+  }
+}
+
+function isNetwork(v: unknown): v is MwNetwork {
+  return v === 'testnet' || v === 'mainnet' || v === 'localnet'
+}
+
+/** The `network` query parameter of the page's address, if it names a known network. */
+function networkFromUrl(): MwNetwork | null {
+  try {
+    if (typeof location === 'undefined') return null
+    const v = new URLSearchParams(location.search).get('network')
+    return isNetwork(v) ? v : null
+  } catch {
+    return null
   }
 }
 
 function loadNetwork(): MwNetwork {
+  forgetLegacyStorage()
+  const fromUrl = networkFromUrl()
+  if (fromUrl) {
+    writeStored(LS_NET, fromUrl)
+    return fromUrl
+  }
   const stored = readStored(LS_NET)
-  return (stored === 'testnet' || stored === 'mainnet' || stored === 'localnet') ? stored : 'testnet'
+  return isNetwork(stored) ? stored : 'testnet'
 }
 
 function loadLocalnetRpc(): string {
