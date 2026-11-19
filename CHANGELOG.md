@@ -10,6 +10,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - **The selected network is kept for the tab, not the device (PECR Sch. A1 para 4(e)).** `useNetwork` keeps the network and the
   localnet RPC in `sessionStorage` instead of `localStorage`; the old `localStorage` keys are removed on load. A link may carry
   `?network=testnet|mainnet|localnet` to open on that network (read once at load; an unknown value is ignored).
+- `setNetwork(n, { keep: false })` selects without storing, for a selection the app makes on the person's behalf (an instance's
+  network); `selectBuiltNetwork` stores nothing either.
 
 ## [0.0.24] - 2026-11-19
 

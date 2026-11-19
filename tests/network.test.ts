@@ -60,6 +60,29 @@ describe('where the selection is kept (STORAGE_LEDGER B4)', () => {
     expect(local.m.size).toBe(0)
   })
 
+  it('stores nothing when a build selects its own network', async () => {
+    const session = memory()
+    vi.stubGlobal('sessionStorage', session.s)
+    vi.stubGlobal('localStorage', memory().s)
+    const { selectBuiltNetwork, useNetwork } = await import('../src/network.js')
+    selectBuiltNetwork('mainnet')
+    expect(useNetwork().network.value).toBe('mainnet')
+    expect(session.m.size).toBe(0)
+  })
+
+  it('stores nothing for setNetwork(n, { keep: false }), and keeps a person\'s own choice', async () => {
+    const session = memory()
+    vi.stubGlobal('sessionStorage', session.s)
+    vi.stubGlobal('localStorage', memory().s)
+    const { useNetwork } = await import('../src/network.js')
+    const net = useNetwork()
+    net.setNetwork('mainnet', { keep: false })
+    expect(net.network.value).toBe('mainnet')
+    expect(session.m.size).toBe(0)
+    net.setNetwork('testnet')
+    expect(session.m.get('mw:network')).toBe('testnet')
+  })
+
   it('opens on the network a link names, and ignores an unknown one', async () => {
     const session = memory()
     vi.stubGlobal('sessionStorage', session.s)

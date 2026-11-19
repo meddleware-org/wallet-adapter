@@ -132,16 +132,25 @@ const _explorerNetwork = computed<'mainnet' | 'testnet'>(() => (_network.value =
 const explorerNetworkView = readonly(_explorerNetwork)
 const localnetRpcView = readonly(_localnetRpc)
 
+/** Select `n`; keep it for the tab only when the person chose it (`keep`), not when a build or a host selects it for them. */
+function selectNetwork(n: MwNetwork, keep: boolean): void {
+  // A JavaScript caller (or a stale stored value) must not be able to select an unknown network: its
+  // rpcUrl would be undefined and the chain checks keyed on the name would mean nothing.
+  if (!MW_NETWORKS.includes(n)) {
+    throw new Error(`setNetwork: unknown network "${String(n)}" (expected ${MW_NETWORKS.join(', ')})`)
+  }
+  if (_network.value !== n) generation++
+  _network.value = n
+  if (keep) writeStored(LS_NET, n)
+}
+
 export function useNetwork() {
-  function setNetwork(n: MwNetwork): void {
-    // A JavaScript caller (or a stale stored value) must not be able to select an unknown network: its
-    // rpcUrl would be undefined and the chain checks keyed on the name would mean nothing.
-    if (!MW_NETWORKS.includes(n)) {
-      throw new Error(`setNetwork: unknown network "${String(n)}" (expected ${MW_NETWORKS.join(', ')})`)
-    }
-    if (_network.value !== n) generation++
-    _network.value = n
-    writeStored(LS_NET, n)
+  /**
+   * Select a network. The person's own choice is kept for the tab; pass `{ keep: false }` when the app selects it for them (an instance
+   * or build that always serves one network), so nothing is stored for a choice nobody made (STORAGE_LEDGER B4).
+   */
+  function setNetwork(n: MwNetwork, options: { keep?: boolean } = {}): void {
+    selectNetwork(n, options.keep ?? true)
   }
 
   function setLocalnetRpc(url: string): void {
@@ -194,5 +203,6 @@ export function useNetwork() {
  * Embedded in the dashboard the host's selector rules and this is not called.
  */
 export function selectBuiltNetwork(built: string | undefined): void {
-  if (built === 'testnet' || built === 'mainnet') useNetwork().setNetwork(built)
+  // Nothing is stored: the build always selects the same network, so there is no choice to remember (STORAGE_LEDGER B4).
+  if (built === 'testnet' || built === 'mainnet') selectNetwork(built, false)
 }
