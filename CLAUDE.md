@@ -137,3 +137,7 @@ The three components are built from `@meddleware/ui` primitives and the design t
 - Do not hardcode or prefer a specific wallet.
 - Do not add a build step or emit `dist/`.
 - Do not make the state non-singleton.
+
+## Interoperability
+
+- [docs/INTEROP.md](docs/INTEROP.md): the standards this project speaks, what is planned, where to extend it, and what proves each claim.

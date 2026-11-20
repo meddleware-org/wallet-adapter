@@ -71,3 +71,7 @@ test and end-to-end builds) is exported from `@meddleware/wallet-adapter/testing
   tries the shared faucet and may be rate-limited. No maintainer key is needed.
 
 No build step: the package ships TypeScript source, resolved by the consuming app's bundler.
+
+## Open standards
+
+What this project speaks, what is planned and where you can extend it: [docs/INTEROP.md](docs/INTEROP.md).
