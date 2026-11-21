@@ -1,2 +1,5 @@
+# Files git must never track in this package. It ships TypeScript source (no build step), so `dist/` is only ever local output.
+# Dependencies: installed from the lockfile by `npm ci`.
 node_modules/
+# Build output, if any is made locally; never committed.
 dist/

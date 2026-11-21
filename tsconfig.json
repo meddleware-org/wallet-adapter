@@ -1,16 +1,23 @@
+// TypeScript settings for type-checking (`npm run type-check`, through vue-tsc). Nothing is emitted: the package ships its TypeScript source and the consuming app's
+// bundler compiles it. The tests are not part of this check (FU-0200 records the type errors that including them would surface).
 {
   "compilerOptions": {
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    // The DOM types the components and the wallet-standard code use.
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "strict": true,
+    // An index access can be undefined: the wallet code handles it (`accounts[0]`) rather than assuming a wallet returned an account.
     "noUncheckedIndexedAccess": true,
+    // A library ships no dead code: an unused local or parameter is a mistake here.
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "esModuleInterop": true,
+    // Do not type-check the dependencies' own declaration files: their correctness is not this package's to prove.
     "skipLibCheck": true,
     "resolveJsonModule": true,
+    // Required by Vite (each file is transpiled alone) and by `verbatimModuleSyntax`, which keeps `import type` honest.
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "jsx": "preserve",

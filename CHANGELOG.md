@@ -3,6 +3,14 @@
 All notable changes to `@meddleware/wallet-adapter` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Documentation: every file is annotated line by line and has a header; added `CONTRIBUTING.md` and `AGENTS.md`; the README has a Development section and CLAUDE.md has Commands, Gotchas and Related.
+- CI runs the shared dependency gate (`npx --no-install mw-audit-gate`, from `@meddleware/frontend-config`) instead of a copy in `.github/audit-gate.mjs`, which is removed.
+- No behaviour change: the compiled output of the source is identical.
+
 ## [0.0.25] - 2026-11-19
 
 ### Changed

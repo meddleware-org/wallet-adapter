@@ -13,6 +13,7 @@ import type { SuiGrpcClient } from '@mysten/sui/grpc'
 import { buildExecutor, getSuiClient, useWallet, type Executor } from './wallet.js'
 import { useNetwork } from './network.js'
 
+/** Options for {@link createToolWallet}. */
 export interface ToolWalletOptions {
   /**
    * Wallet-standard features this tool needs, e.g. `sui:signTransaction` or `sui:signPersonalMessage`. They filter THIS tool's list of
@@ -23,12 +24,19 @@ export interface ToolWalletOptions {
 
 /** What `useWallet()` returns for a tool. Everything a tool might use; destructure the parts it needs. */
 export interface ToolWallet {
+  /** The wallets this tool may offer (filtered by its required features). */
   wallets: ReturnType<typeof useWallet>['wallets']
+  /** The connected wallet, or `null`; shared with every other tool in the window. */
   currentWallet: ReturnType<typeof useWallet>['currentWallet']
+  /** The connected account, or `null`. */
   account: ReturnType<typeof useWallet>['account']
+  /** A connection attempt is in progress. */
   connecting: ReturnType<typeof useWallet>['connecting']
+  /** The last connection failure as a sentence, or `null`. */
   error: ReturnType<typeof useWallet>['error']
+  /** Connect a wallet. */
   connect: ReturnType<typeof useWallet>['connect']
+  /** Disconnect. */
   disconnect: ReturnType<typeof useWallet>['disconnect']
   /** Sign a personal message with the connected wallet (for example to mint a Seal session key). */
   signPersonalMessage: ReturnType<typeof useWallet>['signPersonalMessage']
@@ -40,7 +48,11 @@ export interface ToolWallet {
   buildExecutor: () => Promise<Executor>
 }
 
-/** Bind the shared wallet and network singletons to one tool. See the file comment. */
+/**
+ * Bind the shared wallet and network singletons to one tool. See the file comment.
+ * @param options - the wallet features this tool needs
+ * @returns the tool's `useWallet`, `getSuiClient`, `buildExecutor`, `signAndExecute` and `signPersonalMessage`
+ */
 export function createToolWallet(options: ToolWalletOptions = {}) {
   const { network, rpcUrl } = useNetwork()
 
@@ -48,9 +60,12 @@ export function createToolWallet(options: ToolWalletOptions = {}) {
   const client = (): SuiGrpcClient => getSuiClient(network.value, rpcUrl.value)
   /** An executor bound to the connected wallet and the network selected right now. */
   const executor = (): Promise<Executor> => buildExecutor(network.value, rpcUrl.value)
+  // The one-call form most tools use: build an executor for the network selected right now, then sign and execute.
   const signAndExecute = async (tx: Transaction): Promise<{ digest: string }> => (await executor()).signAndExecute(tx)
+  // Goes through the shared singleton, so a message is signed by whichever wallet any tool connected.
   const signPersonalMessage: ToolWallet['signPersonalMessage'] = (message) => useWallet().signPersonalMessage(message)
 
+  /** The tool's `useWallet()`: the singleton's state filtered by this tool's features, plus the tool-bound helpers. */
   function useToolWallet(): ToolWallet {
     const base = useWallet({ requiredFeatures: options.requiredFeatures })
     return {

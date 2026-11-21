@@ -6,6 +6,7 @@ import { useWallet, getSuiClient, buildExecutor, digestFromExecuteResult, shortC
 // These unit tests cover the parts that are deterministic off a browser: the Sui client
 // cache and the "connect first" guards on the signing operations.
 
+// The client rules: a known network label and a safe endpoint (https, or local http for development).
 describe('getSuiClient: network and url rules', () => {
   it('refuses an unknown network label', () => {
     expect(() => getSuiClient('evilnet', 'https://rpc.example')).toThrow(/unknown network/)
@@ -40,6 +41,7 @@ describe('getSuiClient', () => {
   })
 })
 
+// Every signing path must refuse, with a clear message, until a wallet is connected.
 describe('operation guards before connect', () => {
   it('exposes readonly reactive state with no wallet connected initially', () => {
     const w = useWallet()
@@ -63,6 +65,7 @@ describe('operation guards before connect', () => {
   })
 })
 
+// Both branches of an execution result carry a digest, so a failed transaction must throw or it would be taken for a success.
 describe('digestFromExecuteResult (failed-tx surfacing)', () => {
   it('returns the digest for a successful Transaction', () => {
     const res = { $kind: 'Transaction', Transaction: { digest: '0xabc' } }
@@ -80,15 +83,23 @@ describe('digestFromExecuteResult (failed-tx surfacing)', () => {
   })
 })
 
-/** The shared client for `network` + `url`, with its chain-identifier read answered locally (no network). */
 /** What a node really reports (`getChainIdentifier`): the full base58 genesis digest. */
 const CHAIN_IDENTIFIER = { testnet: '69WiPg3DAQiwdxfncX6wYQ2siKwAe6L9BZthQea3JNMD', mainnet: '4btiuiMPvEENsttpZC7CZ53DruC3MAgfznDbASZ7DR6S' } as const
+/**
+ * The shared client for `network` + `url`, with its chain-identifier read answered locally (no network).
+ * @param network - the network
+ * @param url - the endpoint
+ * @param id - the identifier the "node" reports (default the real one for that network)
+ */
 function stubChainId(network: 'testnet' | 'mainnet', url: string, id: string = CHAIN_IDENTIFIER[network]) {
   return vi.spyOn(getSuiClient(network, url).core, 'getChainIdentifier').mockResolvedValue({ chainIdentifier: id })
 }
 
-// A minimal wallet-standard wallet: `connect()` accepts any Wallet object, so the connection and
-// event paths are testable without the window-based registry.
+/**
+ * A minimal wallet-standard wallet: `connect()` accepts any Wallet object, so the connection and event paths are testable without the window-based registry.
+ * @param accounts - the accounts it exposes (address and the chains each lists)
+ * @returns the wallet, a function to emit a `change` event, and the spies for unsubscribing and signing
+ */
 function fakeWallet(accounts: Array<{ address: string; chains: string[] }>) {
   let listener: ((p: { accounts?: unknown[] }) => void) | null = null
   const unsubscribe = vi.fn(() => {
@@ -122,12 +133,15 @@ function fakeWallet(accounts: Array<{ address: string; chains: string[] }>) {
   }
 }
 
+// Two accounts a wallet can switch between.
 const ALICE = { address: '0xa11ce', chains: ['sui:testnet'] }
 const BOB = { address: '0xb0b', chains: ['sui:testnet'] }
 
+// wallet-standard `change` events: an account switch inside the wallet must be followed, and an empty list means disconnected or locked.
 describe('wallet change events', () => {
   afterEach(() => useWallet().disconnect())
 
+  // The wallet's `change` event carries its current accounts; the adapter keeps the current one if still exposed, else moves to the first.
   it('follows an account switch made inside the wallet', async () => {
     const w = useWallet()
     const fake = fakeWallet([ALICE, BOB])
@@ -172,6 +186,7 @@ describe('wallet change events', () => {
   })
 })
 
+// An executor signs for one account and one chain: it refuses a chain the account does not list, and refuses to sign after the account changed.
 describe('executor chain and account binding', () => {
   afterEach(() => useWallet().disconnect())
 
@@ -193,6 +208,7 @@ describe('executor chain and account binding', () => {
   })
 })
 
+// With `include` the executor returns the detailed result and does not throw for an on-chain failure, so the caller must check `success`.
 describe('executor include option', () => {
   beforeEach(() => void stubChainId('testnet', 'https://rpc.example'))
   afterEach(() => useWallet().disconnect())
@@ -230,6 +246,7 @@ describe('executor include option', () => {
   })
 })
 
+// An app with its own client (a test build) can inject it; signing, the chain check and the account binding must be unchanged.
 describe('executor with an injected client', () => {
   afterEach(() => useWallet().disconnect())
 
@@ -254,6 +271,7 @@ describe('executor with an injected client', () => {
   })
 })
 
+// The RPC must serve the network the app believes it is on (a mocked client once hid a wrong format here), and a network switch invalidates executors.
 describe('RPC / network binding', () => {
   afterEach(() => useWallet().disconnect())
   const okClient = (chainIdentifier: string) => ({
@@ -287,6 +305,7 @@ describe('RPC / network binding', () => {
   })
 })
 
+// One connection attempt at a time, and a wallet that rejects its own disconnect must not raise an unhandled rejection.
 describe('connect serialisation and disconnect', () => {
   afterEach(() => useWallet().disconnect())
 
@@ -326,6 +345,7 @@ describe('connect serialisation and disconnect', () => {
   })
 })
 
+// The short id is the first four bytes of the genesis digest in hex: the format the chain check compares (a mocked client once hid a wrong one).
 describe('shortChainId', () => {
   it('maps the identifiers public nodes report to the short ids', () => {
     expect(shortChainId('69WiPg3DAQiwdxfncX6wYQ2siKwAe6L9BZthQea3JNMD')).toBe('4c78adac')

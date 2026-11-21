@@ -10,16 +10,20 @@ import type { Wallet } from '@mysten/wallet-standard'
 import WalletSelector from '../src/WalletSelector.vue'
 import WalletModal from '../src/WalletModal.vue'
 
+// Register the axe matcher at runtime (vitest globals are off).
 expect.extend(axeMatchers)
 
 // jsdom has no canvas: axe-core probes getContext() during some checks, and jsdom logs
 // "Not implemented" before returning null. Return null up front — the same result axe already
 // gets — so the noise goes away without changing what is tested.
 HTMLCanvasElement.prototype.getContext = (() => null) as typeof HTMLCanvasElement.prototype.getContext
+// Fragments are not whole pages, so the page-level `region` rule does not apply to them.
 const opts = { rules: { region: { enabled: false } } }
 
+// jsdom has no <dialog> modality; the shim (from frontend-config) models the parts UiDialog uses.
 beforeAll(installDialogShim)
 
+// The wallet module is mocked here (modal-real.test.ts uses the real one): a spy for `connect`, and a hoisted holder for the error the mock shows.
 const connect = vi.hoisted(() => vi.fn<(wallet: unknown) => Promise<void>>(async () => {}))
 const walletError = vi.hoisted(() => ({ value: null as string | null }))
 vi.mock('../src/wallet.js', async () => {
@@ -34,8 +38,10 @@ vi.mock('../src/wallet.js', async () => {
   }
 })
 
+/** Two wallets, one with an icon and one without, for the picker tests. */
 const WALLETS = [{ name: 'Alpha', icon: 'data:image/png;base64,AA==' }, { name: 'Beta' }] as unknown as Wallet[]
 
+// The picker is presentational: markup semantics (a list of buttons, a paragraph when empty), icon safety and the `select` event.
 describe('WalletSelector', () => {
   it('renders a <menu> of wallet buttons and emits the chosen wallet', async () => {
     const w = mount(WalletSelector, { props: { wallets: WALLETS } })
@@ -69,6 +75,7 @@ describe('WalletSelector', () => {
   })
 })
 
+// A failed connection must be visible: the dialog stays open and shows the reason, not a silent failure.
 describe('WalletModal connection errors', () => {
   it('stays open and shows the reason when the wallet rejects, instead of failing silently', async () => {
     connect.mockClear()
@@ -109,6 +116,7 @@ describe('WalletModal', () => {
 })
 
 
+// The modal has two top-level elements, so attribute forwarding, the label and the live region are its own behaviour to test.
 describe('WalletModal as a component', () => {
   it('forwards attributes to its trigger (it has two top-level elements, so nothing falls through by itself)', () => {
     const w = mount(WalletModal, { attrs: { class: 'mine', 'data-testid': 'connect' }, attachTo: document.body })

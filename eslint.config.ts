@@ -1,3 +1,4 @@
+// ESLint configuration (`npm run lint:js`): the fleet's Vue + TypeScript + accessibility + browser-compatibility config, from @meddleware/frontend-config.
 import { vueApp } from '@meddleware/frontend-config/eslint'
 
 // The fleet's Vue + TypeScript + accessibility + browser-compat config. No chain boundary here: this package IS the boundary (it owns

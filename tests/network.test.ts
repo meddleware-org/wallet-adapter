@@ -1,10 +1,17 @@
+/**
+ * Tests for the network selector (`src/network.ts`): it keeps working when browser storage is blocked, ignores a tampered stored value, keeps the choice for
+ * the tab only (sessionStorage, never localStorage, STORAGE_LEDGER B4) and only when the person made it, opens on the network a link names, validates what it
+ * is given, and takes an operator's full node without ever storing it.
+ */
 import { describe, it, expect, vi, afterEach } from 'vitest'
 
+// The selector is a module singleton, so each test re-imports it fresh (the tests use `vi.resetModules`) and restores any stubbed global afterwards.
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.resetModules()
 })
 
+// Storage can throw (blocked site data, some private modes): the app must load with defaults and keep working.
 describe('useNetwork with unavailable browser storage', () => {
   it('loads with defaults and keeps working when storage throws', async () => {
     const blocked = {
@@ -15,6 +22,7 @@ describe('useNetwork with unavailable browser storage', () => {
         throw new DOMException('blocked', 'SecurityError')
       },
     }
+    // Both storages throw on every access, as a browser with site data blocked does.
     vi.stubGlobal('sessionStorage', blocked)
     vi.stubGlobal('localStorage', blocked)
     const { useNetwork } = await import('../src/network.js')
@@ -38,7 +46,9 @@ describe('useNetwork with unavailable browser storage', () => {
   })
 })
 
+// The selection is a session record of a choice the person made (strictly necessary, PECR Sch. A1 para 4(e)): the tab's sessionStorage, never localStorage.
 describe('where the selection is kept (STORAGE_LEDGER B4)', () => {
+  /** An in-memory stand-in for a Storage, with a handle on its contents so a test can see exactly what was written. */
   const memory = () => {
     const m = new Map<string, string>()
     return { m, s: { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) } }
@@ -47,12 +57,14 @@ describe('where the selection is kept (STORAGE_LEDGER B4)', () => {
   it('keeps it for the tab (sessionStorage), never in localStorage, and removes the old localStorage keys', async () => {
     const session = memory()
     const local = memory()
+    // What an earlier version left in localStorage: it must be removed on load, and never read.
     local.m.set('mw:network', 'mainnet')
     local.m.set('mw:localnet-rpc', 'http://127.0.0.1:9123')
     vi.stubGlobal('sessionStorage', session.s)
     vi.stubGlobal('localStorage', local.s)
     const { useNetwork } = await import('../src/network.js')
     const net = useNetwork()
+    // The old keys are gone and the stale "mainnet" was not used: the selection starts at testnet.
     expect(local.m.size).toBe(0)
     expect(net.network.value).toBe('testnet')
     net.setNetwork('mainnet')
@@ -65,6 +77,7 @@ describe('where the selection is kept (STORAGE_LEDGER B4)', () => {
     vi.stubGlobal('sessionStorage', session.s)
     vi.stubGlobal('localStorage', memory().s)
     const { selectBuiltNetwork, useNetwork } = await import('../src/network.js')
+    // A build always selects the same network, so there is no choice to remember and nothing is written.
     selectBuiltNetwork('mainnet')
     expect(useNetwork().network.value).toBe('mainnet')
     expect(session.m.size).toBe(0)
@@ -98,6 +111,7 @@ describe('where the selection is kept (STORAGE_LEDGER B4)', () => {
   })
 })
 
+// A JavaScript caller or a stale stored value must not be able to select an unknown network (its endpoint would be undefined).
 describe('useNetwork validation', () => {
   it('refuses an unknown network name instead of storing it', async () => {
     vi.resetModules()
@@ -141,6 +155,7 @@ describe('explorerNetwork and selectBuiltNetwork', () => {
   })
 })
 
+// An operator's full node is configuration, not a visitor choice: https only, no credentials, never written to storage.
 describe('setRpcUrl (an operator full node)', () => {
   it('uses the configured full node for its network only, and the public one again on null', async () => {
     const { useNetwork, rpcUrlFor, networkGeneration } = await import('../src/network.js')

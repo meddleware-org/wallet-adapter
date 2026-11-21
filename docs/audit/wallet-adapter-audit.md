@@ -24,10 +24,22 @@ Meddleware Vue app. It provides:
 - AUDIT_TEMPLATE_A11Y.md (2026-11-01), dialog and selector components; swept in the consuming apps
   testnet with a throwaway or funded key; manual, moves a 1-MIST self-transfer)
 
+**Added 2026-11-21 (Part B documentation pass):** AUDIT_TEMPLATE_DOCS.md (2026-11-20); AUDIT_TEMPLATE_RFC.md (2026-11-19),
+partial: Wallet Standard, gRPC-web, URLs and base64 (the signing and chain rules stay with SUI_CLIENT); AUDIT_TEMPLATE_IOP.md
+(2026-11-19), partial: public API, versioning and the dependency list; AUDIT_TEMPLATE_PRIV.md (2026-11-20), partial: the one
+storage key and the node requests.
+
 Not triggered: SUI (no Move), SEAL, WALRUS, WORKERS, RUST, GO, IMG (a library: no image), SITE, AUTH,
 PROXY. PLATFORM (draft, 2026-10-08) describes the environment, not this package.
 
 **Deployment status:**
+
+- *(Current, 2026-11-21: npm **`0.0.25` is `latest`** (tag `v0.0.25` = `0086eb4`); one documentation commit since the tag
+  (`895dde1`, the INTEROP page), nothing under `src/`. The tarball is 12 files, 69.3 kB unpacked, 22.2 kB packed
+  (`npm pack --dry-run`). Consumers: `dashboard-ui` (the host, `^0.0.25`) and the tool apps `access-gate-ui`, `sealed-storage-ui`,
+  `walrus-storage-ui`, `token-issuance-ui`, `treasury-ui` (peer `>=0.0.22 <0.2.0`, dev `^0.0.25`), `dao-ui` (peer `>=0.0.12 <0.2.0`,
+  dev `^0.0.20`), `link-in-bio-ui` and `dev-site` (`^0.0.25`). Two Dependabot pull requests are open with their one check green:
+  #21 (the minor and patch group, 11 updates) and #17 (jsdom 30.1.3 to 31.0.1). The entries below are history, kept as written.)*
 
 - npm `@meddleware/wallet-adapter` **0.0.17** (tag `v0.0.17` = `0561d0b`, 2026-10-08; SLSA v1
   provenance attestation verified; `latest`). 0.0.14 and 0.0.15 are also on npm; 0.0.14's chain check
@@ -56,6 +68,9 @@ PROXY. PLATFORM (draft, 2026-10-08) describes the environment, not this package.
 - The wallet extension is the user's independent confirmation step, which bounds the worst case.
 - Realised ceiling at this pass: **Low** (no open finding; the three Low findings of the first pass are
   RESOLVED).
+
+**Documentation pass 2026-11-21 (0.0.25 current):** F18 (documentation drift found by the pass) is RESOLVED and F19
+(`type-check` does not cover the tests) is DEFERRED to FU-0200. The status below is the earlier one.
 
 **Status:** first-pass baseline 2026-10-03; re-verified 2026-10-09 at `1a93f9c`. All 14 entries (13 findings and one Positive) have a
 disposition: F1–F7 and F9–F11 RESOLVED (F1 with one ACCEPTED-RISK residual, F7 with one ADJUDICATED
@@ -97,6 +112,19 @@ sub-item), F12–F14 ACCEPTED-RISK, F8 Positive. Awaiting external review (a mai
 | CLI tools | none (no Sui or Walrus CLI). The harness is a Node vitest suite on `@mysten/sui` 2.34.0 |
 | Networks targetable | `tests/integration/chain-id…`: read-only, testnet and mainnet public nodes. `tests/integration/grpc-exec…`: signs, on testnet (default) or localnet (`GRPC_TESTNET_NETWORK`); `GRPC_TESTNET_URL` is not checked against the network (F12) |
 | Key material | a throwaway `Ed25519Keypair.generate()` funded from the faucet, or `WALLET_ADAPTER_FUNDED_KEY` (a funded testnet key, never a mainnet key) from the environment; nothing committed, no CI secret |
+
+**Front matter (DOCS, RFC, IOP and PRIV lenses, added 2026-11-21):**
+
+| Field | Value |
+| --- | --- |
+| Documentation status | ledger (workspace `docs/audit/DOCS_LEDGER.tsv`): 41 tracked files, 38 done (36 measured against the thresholds), 3 excluded (the lockfile, `LICENSE`, the generated `docs/INTEROP.md`), 0 pending, 0 fu (2026-11-21 pass) |
+| Required documents | README, CHANGELOG, SECURITY, CONTRIBUTING (added 2026-11-21), LICENSE (0BSD), CLAUDE.md, AGENTS.md (added 2026-11-21): all present |
+| Doc lints | `check-docs.mjs` (workspace) is the gate. The shared `eslint-plugin-jsdoc` fragment is switched on here after the Phase 5 release of `@meddleware/frontend-config` |
+| Standards spoken | Wallet Standard (`@mysten/wallet-standard`) — implements the dapp side (discovery, `standard:connect`, `standard:events`, the Sui signing features); gRPC-web to a Sui full node — consumes, through `@mysten/sui`; URL syntax (RFC 3986) and HTTPS — checks an operator's RPC override (`isAllowedRpcOverride`); base64 (RFC 4648) — the mock wallet hands messages to a signer as base64; JSON (RFC 8259) — the mock hands a transaction to a signer as JSON; HTML and WCAG 2.2 AA — the three components, swept in the consuming apps; SPDX `0BSD`, Sigstore / SLSA — as the other packages |
+| Deviations | none |
+| Drafts relied on | none: Wallet Standard is a published specification, not an IETF or W3C document; it is the de facto standard for Sui wallets and the only one |
+| Data a person can take away | none: the package holds no data about anyone |
+| Personal data | none held; a connected wallet's address is read from the wallet and kept in memory for the page only |
 
 **Location:** `wallet-adapter/docs/audit/wallet-adapter-audit.md`. The directory is new in the
 repo and not yet committed.
@@ -723,6 +751,34 @@ Scope: the changes since the 2026-10-19 review — `0.0.19` (advisory patches), 
 **Where:** `WalletModal.vue`, `WalletSelector.vue`, `WalletGuard.vue`.
 **Evidence:** the dialog is the shared native `<dialog>` (`UiDialog`), the status line is an always-mounted live region, errors arrive as alerts; the apps' a11y specs open it (`'wallet dialog'` state in access-gate-ui, walrus-storage-ui, sealed-storage-ui, token-issuance-ui) and sweep it at AA and AAA in every theme × season, at 320 px, 200% text, in forced colours and by keyboard (A11Y lens). The picker still warns when two wallets share a name (F-series above) and filters by required features per tool.
 
+### Part B documentation pass (2026-11-21)
+
+Scope: every tracked file read against the workspace's `docs/operations/DOCUMENTATION_STANDARD.md` and annotated (Part B Phase 1, the seventh repository); the DOCS, RFC, IOP and PRIV lenses applied for the first time.
+Before and after editing: `npm ci`, type-check, lint, the 83 tests and the audit gate passed. The diff is comment-only: the TypeScript and Vue compile to identical output with comments removed (the template compiled
+with comments off, the script blocks transpiled, the styles compared without comments), the YAML parses to identical values apart from the audit-gate command in `node-ci.yml` (FU-0196) and shell comments inside a
+`run:` block of `npm-publish.yml`, `.gitignore` has the same patterns, and the JSON configurations parse alike. The one template comment that sat before a component's root moved into the script (F18).
+
+### F18 — Documentation drift found by the documentation pass
+**Severity:** Low   **Disposition:** RESOLVED (2026-11-21, unreleased)
+**Where:** this audit, `CLAUDE.md`, `README.md`, `.github/audit-gate.mjs`, `src/WalletSelector.vue`.
+**Issue:** (1) this audit gave 0.0.17 as current, a tarball of 10 files and 41 tests, and named the consumers at `^0.0.17`, so a reader would not know about `createToolWallet`, the `/testing` entry, the
+`sessionStorage` network selector or the 83 tests; (2) CLAUDE.md had no Commands, Gotchas or Related section and the README's Scripts section named two commands and none of the CI checks; (3) there was no
+`AGENTS.md` or `CONTRIBUTING.md`; (4) `.github/audit-gate.mjs` was an un-annotated copy of the shared gate (one of the nine copies of FU-0196) although `@meddleware/frontend-config`, a dev dependency, ships it as
+`mw-audit-gate`; (5) `WalletSelector.vue` had an HTML comment before the template's root element, which makes the component a fragment in a development build and breaks attribute fallthrough (the fleet's lesson from
+`ui`); the tests pass either way because they mount the component by itself.
+**Impact:** none on the shipped behaviour. The audit under-described what is published and tested, and a development build of a consuming app could lose a class or attribute passed to the picker.
+**Remediation / evidence:** the facts above are checked against npm and the consumers' manifests; the README and CLAUDE.md have the commands; the missing documents are added; CI runs
+`npx --no-install mw-audit-gate` and the copy is removed (FU-0196); the template note is a `//` comment in the script. The audit-gate result is the same: 0 high or critical advisories, 0 not allowlisted, and the
+allow-list is empty (`[]`).
+
+### F19 — `npm run type-check` does not cover the tests
+**Severity:** Low   **Disposition:** DEFERRED (FU-0200)
+**Where:** `tsconfig.json` (`"include": ["src/**/*.ts", "src/**/*.d.ts"]`), `package.json` (`type-check`), `.github/workflows/node-ci.yml`.
+**Issue:** `vue-tsc --noEmit` checks `src/` only (`--listFilesOnly` lists no file under `tests/`), so a type error in a test is found by nobody: vitest transpiles without checking types. The tests use casts to
+reach the stub client's shapes, which is where a drift between the stub and the real client would hide.
+**Impact:** a stub that no longer matches the SDK's types would still pass; the integration test is the only run against the real client and it is manual.
+**Remediation / evidence:** not changed in the documentation pass (the change needs a second tsconfig and the casts in the tests fixed). FU-0200 has the next step. CLAUDE.md's Gotchas and the CI comment say so.
+
 ### Delta notes
 - `createToolWallet` adds no state: the connection and the network stay module singletons, which is what the shared-wallet invariant (A1) requires; its `signPersonalMessage` reads `useWallet()` at call time.
 - Package contents: `src/` only (`files: ["src"]`); `testing.ts` ships by design (a subpath export, 9 kB of source) and is unreachable from `.`.
@@ -825,6 +881,52 @@ variable (`GRPC_TESTNET=1`), the funding step (the faucet pays into the address 
 to document: the execution suite spends gas on a throwaway or testnet-only key and writes nothing.
 
 ---
+
+### B.DOCS-1 Ledger state
+
+41 tracked files: 38 done (36 measured against the thresholds), 3 excluded (lockfile, licence text, generated `INTEROP.md`), 0 pending, 0 `fu:` rows (2026-11-21, commit recorded in the ledger).
+
+### B.DOCS-2 Commands run
+
+Every command in the README's Development section, CLAUDE.md's Commands section and CONTRIBUTING.md was run on 2026-11-21 and gave what the documents say: `npm ci`, `npm run type-check`, `npm run lint`,
+`npm test` (83 tests in 7 files), `npx --no-install mw-audit-gate`, `npm pack --dry-run` (12 files). The integration test (`GRPC_TESTNET=1 npm run test:integration`) needs a funded key and was not re-run
+(nothing under `src/` changed in behaviour).
+
+### B.DOCS-3 Generated documentation
+
+`docs/INTEROP.md` is generated by the workspace's `scripts/interop/gen-interop.py` from `config/interop.yaml` and checked there. There is no other generated file: the package has no build.
+
+### B.RFC-1 Standards inventory
+
+| Interface | Standard (and version) | Role | Where | Conformance evidence | Deviation |
+| --- | --- | --- | --- | --- | --- |
+| Wallet discovery and connection | Wallet Standard (`@mysten/wallet-standard` 0.21.x, peer `>=0.21 <0.22`) | implements the dapp side | `src/wallet.ts` | `tests/wallet.test.ts` with fake wallets; the apps' e2e with the mock wallet | 0.x minors are breaking, so the range is narrow on purpose |
+| Signing | Wallet Standard Sui features (`sui:signTransaction`, `sui:signPersonalMessage`) | consumes | `src/wallet.ts`, `src/tool-wallet.ts` | `tests/wallet.test.ts`, `tests/tool-wallet.test.ts` | — |
+| Node transport | gRPC-web (through `@mysten/sui/grpc`) | consumes | `src/wallet.ts` (`getSuiClient`) | `tests/integration/` (manual, real node) | JSON-RPC is deprecated SDK-wide and not used |
+| RPC override | URL syntax (RFC 3986), HTTPS | checks | `src/network.ts` (`isAllowedRpcOverride`) | `tests/network.test.ts` (no credentials, query or fragment) | — |
+| Mock signer hand-off | base64 (RFC 4648), JSON (RFC 8259) | implements | `src/testing.ts` | `tests/testing.test.ts` | test builds only |
+| Components | HTML living standard; WCAG 2.2 AA | implements | `src/Wallet*.vue` | `tests/components.test.ts` (axe), the apps' sweeps | — |
+| Provenance | Sigstore / SLSA (npm provenance) | consumes | `npm-publish.yml` | `dist.attestations` on npm | — |
+
+### B.IOP-1 Export and exit drill
+
+Not applicable: the package holds no data about anyone. A tool leaves by replacing it with another Wallet Standard connector; the only coupling is the five functions listed in the README.
+
+### B.IOP-2 Exit register entries
+
+npm (publication) and GitHub Actions (CI). The public Sui full nodes (`https://fullnode.testnet.sui.io:443`, `https://fullnode.mainnet.sui.io:443`) are the default endpoints: an operator points the page at their own
+node with `useNetwork().setRpcUrl` (an https URL, kept for the page only), so no third party is required. Wallet extensions are the person's own and are found, not chosen, by the package.
+
+### B.IOP-3 API stability
+
+The public API is `useWallet`, `useNetwork`, `createToolWallet`, `getSuiClient`, `buildExecutor`, `rpcUrlFor`, `MW_NETWORKS`, the three components and the `/testing` entry. Versioning is patch-only until mainnet
+(workspace policy), so a consumer's `^0.0.x` is an exact pin; a rename or removal is a breaking change and is announced in `CHANGELOG.md`. The tools declare a peer range so the host's single copy serves all.
+
+### B.PRIV-1 / B.PRIV-2 / B.PRIV-3 Privacy inventories
+
+Personal data: none held. A connected wallet's address is kept in memory for the page. Client-side storage: the selected network and the localnet endpoint in `sessionStorage` (strictly necessary for the page the
+person is using, gone with the tab; PECR Sch. A1 para 4(e); STORAGE_LEDGER B4), and a removal of the older `localStorage` keys; nothing is stored before the person chooses a network, and builds store nothing.
+Requests: to the selected full node only, for the chain identifier and the transaction the person signs; no other host, no analytics, no web font. Logs: none. Recorded 2026-11-21.
 
 ## Section C — Test-coverage & hermetic/live split
 
@@ -959,6 +1061,21 @@ lifecycle scripts); TS-M8 yes (`npm ci`, audit gate with expiry, matrix aligned)
 scripts); OPS-M3 / M4 / M5 / M6 N/A (nothing irreversible, no IDs written); OPS-M7 yes (no key in CI, none
 committed); OPS-M8 yes (no real-chain CI job; the suites are manual); OPS-M9 N/A (no CLI state).
 
+**Lens baselines (DOCS, RFC, IOP, PRIV), first recorded 2026-11-21:**
+
+| ID | Holds? | Evidence |
+| --- | --- | --- |
+| DOCS-M1 | yes (all seven documents; 0BSD; CHANGELOG per release with an Unreleased section) | B.DOCS-1 |
+| DOCS-M2 | yes (every file's header and every declaration documented; ledger rows done) | `check-docs.mjs --report wallet-adapter` |
+| DOCS-M3 | yes (the peer ranges, the network selection and the testing entry are in the README and CLAUDE.md) | README, CLAUDE.md |
+| DOCS-M4 | yes (commands run, links resolve, ids exist) | B.DOCS-2 |
+| DOCS-M5 | yes (no TODO, FIXME, XXX or HACK) | `check-docs.mjs` |
+| DOCS-M6 | yes (CLAUDE.md verified against the code, F18; AGENTS.md points to it) | this pass |
+| DOCS-M7 | yes (no secrets or private data; the funded-key variable is named, never a value; no template comment before a root) | inspection |
+| RFC-M1 to RFC-M7 | yes where they apply (B.RFC-1); M5 is the hosts', not a package's | B.RFC-1 |
+| IOP-M3, IOP-M5 | yes (B.IOP-3; no data, no ads, no tracking); IOP-M1, M2, M4, M6, M7: not applicable (no data, no service) | B.IOP-1 to 3 |
+| PRIV-M1 to PRIV-M8 | yes: one sessionStorage key for the tab, set only by the person's choice; nothing else stored or requested | B.PRIV |
+
 ## Implementation suggestions (SHOULD / MAY)
 
 - **S1** (done, F1/F9) `assertRpcServesNetwork` reads the chain identifier once per client and compares
@@ -1048,6 +1165,13 @@ All three first-pass questions are answered; none remains open.
 - 2026-10-22 (audit close-out) — `vite` 8.3.5 in the lockfile (GHSA-587h-7wmj-h5pm, `launch-editor`; a transitive build/dev-server dependency, `package-lock.json` only) (commit `be62c8b`, after the `v0.0.17` tag; devDependency tree only: the published package does not ship Vite, so no version bump, and a CHANGELOG entry is not required). No disposition change. Not re-run in this pass: the tests and the build.
 - 2026-11-01 — frontend-wave delta review of 0.0.19–0.0.20 (and 0.0.21 released 2026-11-05). Read the wallet, network, tool-wallet and testing sources and the components; ran the audit gate, type-check, lint, 74 tests and pack contents; traced every user of the client override. Found and fixed F15 (the test-only `setSuiClientOverride` was exported from the production entry; now `/testing` only); F16 and F17 recorded as Positive. Release-tool marks for 0.0.19/0.0.20 reworded to "released". `**Template:**` dates reconciled to the 2026-11-01 registry (VUE colour row moved to A11Y, applied by reference to the consuming apps) with no disposition change.
 
+- 2026-11-21 — Part B documentation pass and first application of the DOCS, RFC, IOP and PRIV lenses (above, "Part B documentation pass"). Baseline before editing: `npm ci`, type-check, lint, 83 tests, the audit gate.
+  Every tracked file annotated to the documentation standard (headers, TSDoc on every declaration including the three `signAndExecute` overloads, a reason beside each CSS group and each workflow step);
+  `CONTRIBUTING.md` and `AGENTS.md` added; README Development section; CLAUDE.md Commands, Gotchas and Related sections. Found and fixed **F18** (documentation drift: this audit's version, tarball, test count and
+  consumers; thin Development section; an un-annotated copy of the gate; a template comment before a root) and recorded **F19** (type-check skips the tests; FU-0200). Verified live: npm `0.0.25` latest; consumers
+  read from their manifests; Dependabot #21 and #17 open and green. Re-run after editing: the same commands, all passing; the diff proven comment-only (compiled output, parsed YAML, `.gitignore` patterns). Recorded
+  outside the repository: FU-0196 applied here (the copy of the gate is gone). Counts: F1 to F19, of which F8, F16 and F17 are Positive: 12 RESOLVED (F1–F7, F9–F11, F15, F18), 3 ACCEPTED-RISK (F12–F14), 1 DEFERRED (F19).
+
 ## Pre-save consistency checklist (this pass)
 
 - [x] Section A ↔ findings: A7, A9, A10 now HOLD (F1–F3 RESOLVED); A11–A14 added for F1/F4/F5/F9.
@@ -1058,3 +1182,5 @@ All three first-pass questions are answered; none remains open.
 - [x] Executive summary ↔ dispositions and ceiling (High; realised Low).
 - [x] C.1 counts measured 2026-10-09.
 - [x] Re-verification log entry added; `check-audit-structure.mjs` run.
+- [x] 2026-11-21: Template line cites DOCS, RFC, IOP and PRIV with their registry dates; their front-matter fields, Section B subsections and MUST rows added; F18 and F19 recorded in the findings and the log;
+  the deployment status, packaging, test counts and consumers current.

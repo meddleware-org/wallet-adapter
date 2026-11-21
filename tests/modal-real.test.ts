@@ -13,12 +13,20 @@ import WalletGuard from '../src/WalletGuard.vue'
 import WalletSelector from '../src/WalletSelector.vue'
 import { useWallet } from '../src/wallet.js'
 
+// Register the axe matcher at runtime, and silence jsdom's "Not implemented" canvas message (axe probes for one and gets null either way).
 expect.extend(axeMatchers)
 HTMLCanvasElement.prototype.getContext = (() => null) as typeof HTMLCanvasElement.prototype.getContext
+// Fragments are not whole pages, so the page-level `region` rule does not apply.
 const opts = { rules: { region: { enabled: false } } }
 
+// jsdom has no <dialog> modality; the shim models the parts the modal uses.
 beforeAll(installDialogShim)
 
+/**
+ * A minimal registered-style wallet: it must look like a real one (connect and events), because the registry checks for them.
+ * @param name - the wallet's name in the picker
+ * @param connect - what its `connect` does (resolve accounts, or reject)
+ */
 const fake = (name: string, connect: () => Promise<{ accounts: unknown[] }>) =>
   ({
     version: '1.0.0',
@@ -32,7 +40,9 @@ const fake = (name: string, connect: () => Promise<{ accounts: unknown[] }>) =>
     },
   }) as never
 
+// The real module (not the mock of components.test.ts): wallets are registered with wallet-standard and found by the app's own discovery.
 describe('WalletModal with the real wallet module', () => {
+  // Registry handles to undo after each test, so one test's wallets do not appear in the next.
   const unregister: (() => void)[] = []
   afterEach(() => {
     unregister.splice(0).forEach((u) => u())
@@ -56,6 +66,7 @@ describe('WalletModal with the real wallet module', () => {
   })
 })
 
+// A tool that needs a feature only sees the wallets that have it; a tool that needs nothing sees every connectable wallet.
 describe('WalletModal required features', () => {
   const unregister: (() => void)[] = []
   afterEach(() => unregister.splice(0).forEach((u) => u()))
@@ -80,6 +91,7 @@ describe('WalletModal required features', () => {
   })
 })
 
+// Any extension can register any name and icon, so two wallets can look identical: the picker warns, and keys the entries apart.
 describe('WalletSelector look-alikes', () => {
   it('warns when two wallets share a name, and keys them apart', async () => {
     const wallets = [fake('Slush', async () => ({ accounts: [] })), fake('Slush', async () => ({ accounts: [] })), fake('Other', async () => ({ accounts: [] }))] as never[]
@@ -98,6 +110,7 @@ describe('WalletSelector look-alikes', () => {
   })
 })
 
+// The guard shows the tool when a wallet is connected, and otherwise a splash with the connect button.
 describe('WalletGuard', () => {
   it('shows the connect splash while no account is connected', async () => {
     const w = mount(WalletGuard, { props: { message: 'Connect first.' }, slots: { default: '<p>secret panel</p>' } })

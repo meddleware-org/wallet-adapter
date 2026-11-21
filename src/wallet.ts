@@ -29,7 +29,11 @@ type SuiNetwork = 'mainnet' | 'testnet' | 'devnet' | 'localnet'
 /** Networks the gRPC client accepts as a label (what `getSuiClient` may be asked for). */
 const GRPC_NETWORKS = ['mainnet', 'testnet', 'devnet', 'localnet']
 
-/** Allow https:// and http://localhost / http://127.0.0.1 for local dev (the same local rule as `network.ts`). */
+/**
+ * Allow https:// and http://localhost / http://127.0.0.1 for local dev (the same local rule as `network.ts`).
+ * @param url - the gRPC-web endpoint a caller asked for
+ * @returns whether the wallet may talk to it
+ */
 function isAllowedGrpcUrl(url: string): boolean {
   try {
     return new URL(url).protocol === 'https:' || isLocalUrl(url)
@@ -37,6 +41,7 @@ function isAllowedGrpcUrl(url: string): boolean {
 }
 
 // ── singleton reactive state ────────────────────────────────────────────────────────────
+// Module-level refs, so every caller in the window shares them. `shallowRef` for the wallet objects: extension wallets are not safe to make deeply reactive.
 const wallets = shallowRef<Wallet[]>([])
 const currentWallet = shallowRef<Wallet | null>(null)
 const account = shallowRef<WalletAccount | null>(null)
@@ -51,19 +56,29 @@ const BASELINE = ['standard:connect']
 // ── Sui client cache (keyed by network + url so a URL change is not silently ignored) ─────
 // gRPC client (JSON-RPC is deprecated SDK-wide). `rpcUrl` is a gRPC-web endpoint, e.g.
 // https://fullnode.testnet.sui.io:443 — the default GrpcWebFetchTransport works in the browser.
+/** One gRPC client per network and URL, created on first use. */
 const clients = new Map<string, SuiGrpcClient>()
+/** Stub clients installed by a test or end-to-end build, by network (empty in production). */
 const clientOverrides = new Map<string, SuiGrpcClient>()
 
 /**
  * Make {@link getSuiClient} return `client` for `network` (pass `null` to clear it). For test and end-to-end builds that stub the
  * network: gRPC-web responses are binary and cannot be faked at the fetch layer, so the client itself is replaced. Never for production.
+ * @param network - the network label the stub answers for
+ * @param client - the stand-in client, or `null` to remove it
  */
 export function setSuiClientOverride(network: string, client: SuiGrpcClient | null): void {
   if (client) clientOverrides.set(network, client)
   else clientOverrides.delete(network)
 }
 
-/** Return a memoised {@link SuiGrpcClient} for the network + gRPC-web URL (one instance each), or the stub set for the network. */
+/**
+ * Return a memoised {@link SuiGrpcClient} for the network + gRPC-web URL (one instance each), or the stub set for the network.
+ * @param network - `mainnet`, `testnet`, `devnet` or `localnet`
+ * @param rpcUrl - the gRPC-web endpoint: https, or http on localhost for local development
+ * @returns the client
+ * @throws {Error} for an unknown network label or an endpoint that is not https (or local http)
+ */
 export function getSuiClient(network: string, rpcUrl: string): SuiGrpcClient {
   const stub = clientOverrides.get(network)
   if (stub) return stub
@@ -75,6 +90,7 @@ export function getSuiClient(network: string, rpcUrl: string): SuiGrpcClient {
       `getSuiClient: rpcUrl must use https:// (or http://localhost / http://127.0.0.1 for local dev). Got: ${rpcUrl}`,
     )
   }
+  // Keyed by both, so a changed URL gets its own client instead of silently reusing the old one.
   const key = `${network}|${rpcUrl}`
   let c = clients.get(key)
   if (!c) {
@@ -84,6 +100,7 @@ export function getSuiClient(network: string, rpcUrl: string): SuiGrpcClient {
   return c
 }
 
+/** Re-read the wallet-standard registry into the shared list (every wallet that can connect). */
 function refreshWallets(): void {
   // markRaw: extension Wallet objects expose name/icon as ES-private-field getters that
   // throw when accessed through a Vue reactive Proxy.
@@ -93,7 +110,9 @@ function refreshWallets(): void {
     .map((w) => markRaw(w))
 }
 
+// Set once the registry listeners are attached; `useWallet()` calls `init()` on every use.
 let initialised = false
+/** Attach to the wallet-standard registry: read it now and follow wallets that register or unregister later. */
 function init(): void {
   if (initialised) return
   initialised = true
@@ -106,6 +125,7 @@ function init(): void {
 // Unsubscribe handle for the connected wallet's `standard:events` change listener.
 let stopWalletEvents: (() => void) | null = null
 
+/** The `change` listener `standard:events` takes: the wallet's current account list. */
 type ChangeListener = (props: { accounts?: readonly WalletAccount[] }) => void
 
 /**
@@ -134,6 +154,7 @@ function subscribeToWalletEvents(wallet: Wallet): void {
   })
 }
 
+/** Forget the connected wallet and account, and stop listening to the wallet's events. */
 function clearConnection(): void {
   stopWalletEvents?.()
   stopWalletEvents = null
@@ -141,6 +162,11 @@ function clearConnection(): void {
   account.value = null
 }
 
+/**
+ * Connect a wallet: ask it to connect, keep its first account, and follow its account changes. One attempt at a time.
+ * @param wallet - the wallet the person chose
+ * @throws the wallet's own error (a rejected prompt, a locked wallet), after recording it in `error`
+ */
 async function connect(wallet: Wallet): Promise<void> {
   // One connection attempt at a time: a double click or a second wallet clicked mid-prompt is ignored
   // instead of racing (the last to resolve would win, and the other's event listener be dropped).
@@ -165,6 +191,7 @@ async function connect(wallet: Wallet): Promise<void> {
   }
 }
 
+/** Disconnect: ask the wallet to disconnect (best effort) and clear the local connection at once. */
 function disconnect(): void {
   const disc = currentWallet.value?.features['standard:disconnect'] as
     | { disconnect?: () => Promise<void> }
@@ -175,7 +202,11 @@ function disconnect(): void {
   clearConnection()
 }
 
-/** Sign a personal message with the connected wallet; returns the base64 signature. */
+/**
+ * Sign a personal message with the connected wallet; returns the base64 signature.
+ * @param message - the bytes to sign
+ * @throws {Error} when no wallet is connected or the wallet cannot sign personal messages
+ */
 async function signPersonalMessage(message: Uint8Array): Promise<{ signature: string }> {
   const wallet = currentWallet.value
   const acct = account.value
@@ -199,8 +230,11 @@ async function signPersonalMessage(message: Uint8Array): Promise<{ signature: st
  * on-chain (abort, insufficient gas, etc.). The real SDK type satisfies this subset.
  */
 export interface ExecuteTransactionLike {
+  /** `Transaction` for a success, `FailedTransaction` for a transaction that aborted on-chain. */
   $kind: string
+  /** The executed transaction, on success. */
   Transaction?: { digest: string }
+  /** The submitted-but-failed transaction. */
   FailedTransaction?: { digest: string }
 }
 
@@ -208,6 +242,9 @@ export interface ExecuteTransactionLike {
  * Extract the digest from an execute result, THROWING on `FailedTransaction`. Without this a caller
  * would treat an on-chain failure as success (both branches carry a digest), so failed submissions
  * must be surfaced, not swallowed.
+ * @param res - the client's execution result
+ * @returns the transaction digest
+ * @throws {Error} for a failed on-chain transaction or an unexpected result kind
  */
 export function digestFromExecuteResult(res: ExecuteTransactionLike): { digest: string } {
   if (res.$kind === 'FailedTransaction') {
@@ -230,6 +267,7 @@ export type TransactionInclude = SuiClientTypes.TransactionInclude
  * (gas used, the abort) — so callers MUST check `success` before treating it as done.
  */
 export interface ExecutedTransaction<Include extends TransactionInclude> {
+  /** The transaction digest (present for a failed transaction too). */
   digest: string
   /** `true` only when the effects status is success. */
   success: boolean
@@ -262,6 +300,9 @@ export interface Executor {
  * catches an unsupported chain, not the network the wallet UI happens to be set to. The binding that
  * matters is the explicit `chain` passed to `signTransaction`; the RPC's chain id is checked
  * separately ({@link assertRpcServesNetwork}).
+ * @param acct - the connected account
+ * @param chain - the chain the transaction will be signed for
+ * @throws {Error} when the account does not list that chain
  */
 function assertAccountOnChain(acct: WalletAccount, chain: `sui:${string}`): void {
   if (!acct.chains.includes(chain)) {
@@ -272,11 +313,15 @@ function assertAccountOnChain(acct: WalletAccount, chain: `sui:${string}`): void
 
 /** The short chain id Move, Published.toml and wallets use: the first four bytes of the genesis digest, hex. */
 const KNOWN_CHAIN_IDS: Readonly<Record<string, string>> = { testnet: '4c78adac', mainnet: '35834a8a' }
+/** Network and URL pairs whose chain id has already been checked (a good answer is cached for the page). */
 const verifiedRpcs = new Set<string>()
 
 /**
  * The short id of a node's `getChainIdentifier()` result. Nodes report the full base58 genesis
  * checkpoint digest (`69WiPg3D…` for testnet); the short id is its first four bytes in hex.
+ * @param chainIdentifier - the node's base58 genesis digest
+ * @returns the short id (eight hex digits)
+ * @throws {Error} when the identifier decodes to fewer than four bytes
  */
 export function shortChainId(chainIdentifier: string): string {
   const bytes = fromBase58(chainIdentifier)
@@ -289,6 +334,10 @@ export function shortChainId(chainIdentifier: string): string {
  * another's node fails confusingly at best; reading the chain identifier once (cached per
  * network + URL) and comparing it with the known id catches a mismatched pair up front. Only
  * `testnet` and `mainnet` have a fixed id; other networks are not checked.
+ * @param client - the client to ask (an injected one without `core.getChainIdentifier` is not checked)
+ * @param network - the network the app believes it is on
+ * @param rpcUrl - the endpoint, for the cache key and the message
+ * @throws {Error} when the node serves another chain
  */
 async function assertRpcServesNetwork(client: unknown, network: string, rpcUrl: string): Promise<void> {
   const want = KNOWN_CHAIN_IDS[network]
@@ -317,12 +366,20 @@ export interface BuildExecutorOptions {
   client?: ExecutionClient
 }
 
-/** Build an executor bound to the connected wallet + network/RPC URL. */
+/**
+ * Build an executor bound to the connected wallet + network/RPC URL.
+ * @param network - the network to sign for and submit to
+ * @param rpcUrl - the gRPC-web endpoint
+ * @param options - an injected client, for an app that has its own
+ * @returns an executor that refuses to sign if the account or the selected network changes after it was built
+ * @throws {Error} when no wallet is connected, the wallet cannot sign transactions, the account does not list the chain, or the node serves another chain
+ */
 export async function buildExecutor(network: string, rpcUrl: string, options: BuildExecutorOptions = {}): Promise<Executor> {
   const wallet = currentWallet.value
   const acct = account.value
   if (!wallet || !acct) throw new Error('Connect a wallet first.')
   const client: ExecutionClient = options.client ?? getSuiClient(network, rpcUrl)
+  // The chain id wallet-standard uses; the wallet is told it explicitly, never left to infer it from its own UI setting.
   const chain = `sui:${network}` as const
 
   const signFeature = wallet.features['sui:signTransaction'] as
@@ -337,17 +394,26 @@ export async function buildExecutor(network: string, rpcUrl: string, options: Bu
   if (!signFeature) throw new Error('This wallet cannot sign transactions.')
   assertAccountOnChain(acct, chain)
   await assertRpcServesNetwork(client, network, rpcUrl)
+  // The network generation this executor was built in; a network switch bumps it, and the executor then refuses to sign (see `signAndExecute`).
   const builtInGeneration = networkGeneration()
 
   // Narrowed once here: function declarations do not inherit the checks above.
   const boundAccount: WalletAccount = acct
   const signer = signFeature
 
+  /** Overload 1: sign and execute, resolving with the digest and throwing on an on-chain failure. */
   async function signAndExecute(tx: Transaction): Promise<{ digest: string }>
+  /** Overload 2: sign and execute with `include`, resolving with the requested details and a `success` flag (it does not throw on an on-chain failure). */
   async function signAndExecute<Include extends TransactionInclude>(
     tx: Transaction,
     opts: { include: Include },
   ): Promise<ExecutedTransaction<Include>>
+  /**
+   * The implementation of both overloads: check the account and network are still the ones this executor was built for, have the wallet sign,
+   * then execute through the gRPC client.
+   * @param tx - the transaction to sign and execute
+   * @param opts - with `include`, return the detailed form
+   */
   async function signAndExecute<Include extends TransactionInclude>(
     tx: Transaction,
     opts?: { include: Include },
@@ -394,13 +460,20 @@ export async function buildExecutor(network: string, rpcUrl: string, options: Bu
 
 // Readonly views are created once: `useWallet()` runs in every component that shows or needs the connection, and a new proxy (or, for a
 // feature filter, a new computed re-filtering the list) per call is wasted work. The filtered lists are cached by feature set.
+/** Readonly views of the shared state, so a caller can read it but never write it. */
 const walletsView = readonly(wallets)
 const currentWalletView = readonly(currentWallet)
 const accountView = readonly(account)
 const connectingView = readonly(connecting)
 const errorView = readonly(error)
+/** Filtered wallet lists by feature set, built once each. */
 const filtered = new Map<string, DeepReadonly<Ref<Wallet[]>>>()
 
+/**
+ * The wallet list a caller sees: everything connectable, or only the wallets that have the features the caller needs.
+ * @param needed - the required wallet-standard features (always including the baseline)
+ * @returns a readonly, cached view
+ */
 function visibleWallets(needed: string[]): DeepReadonly<Ref<Wallet[]>> {
   if (needed.length === BASELINE.length) return walletsView
   const key = [...needed].sort().join('|')
@@ -414,10 +487,15 @@ function visibleWallets(needed: string[]): DeepReadonly<Ref<Wallet[]>> {
 
 /** Reactive connection state exposed by {@link useWallet} (all fields readonly). */
 export interface WalletState {
+  /** The wallets this caller may offer. */
   wallets: DeepReadonly<Ref<Wallet[]>>
+  /** The connected wallet, or `null`. */
   currentWallet: DeepReadonly<Ref<Wallet | null>>
+  /** The connected account, or `null`. */
   account: DeepReadonly<Ref<WalletAccount | null>>
+  /** A connection attempt is in progress. */
   connecting: Readonly<Ref<boolean>>
+  /** The last connection failure as a sentence, or `null`. */
   error: Readonly<Ref<string | null>>
 }
 
@@ -437,6 +515,7 @@ export interface UseWalletOptions {
  *
  * Module singleton — every caller shares one wallet/account state. Passing `requiredFeatures`
  * filters this caller's `wallets` list; it never changes what another caller sees.
+ * @param options - the features this caller needs
  */
 export function useWallet(options?: UseWalletOptions) {
   init()

@@ -1,3 +1,6 @@
+# Node CI for the wallet adapter: install, audit, type-check, lint and test. There is no build (the package ships its TypeScript source) and no
+# browser job (the signing paths need a real wallet extension; the components are tested under jsdom). It runs on every push to main and every pull
+# request, and the release workflow (npm-publish.yml) calls it on the tagged commit so a tag that fails never publishes.
 name: Node CI
 
 on:
@@ -7,9 +10,11 @@ on:
   # The release workflow runs the same checks on the tagged commit.
   workflow_call:
 
+# Read-only: CI needs nothing but the checkout.
 permissions:
   contents: read
 
+# No tool may phone home from CI (the fleet's privacy rule; npm, Node and other tools honour it).
 env:
   DO_NOT_TRACK: "1"
 
@@ -18,23 +23,31 @@ jobs:
     name: Type-check & test
     runs-on: ubuntu-latest
     steps:
+      # Actions are pinned by full commit SHA with the version in a comment (D12).
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Node 26 is the fleet baseline (D56).
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '26'
 
+      # `npm ci` installs exactly the lockfile, so CI tests what was reviewed.
       - name: Install dependencies
         run: npm ci
 
+      # The shared dependency gate from @meddleware/frontend-config: high and critical advisories fail unless .github/audit-allowlist.json accepts them with a
+      # reason and an expiry (an empty list today). It replaced a copy of the same file in this repository (FU-0196).
       - name: Audit dependencies
-        run: node .github/audit-gate.mjs
+        run: npx --no-install mw-audit-gate
 
+      # vue-tsc: TypeScript over the .ts files and the <script> blocks of the three components (the tests are not included: FU-0200).
       - name: Type-check
         run: npm run type-check
 
+      # Stylelint over the component styles, eslint with the Vue accessibility plugin, and html-validate over the templates.
       - name: Lint (stylelint, eslint + vuejs-a11y, html-validate)
         run: npm run lint
 
+      # The unit tests: the wallet module with fake wallet-standard wallets, the network selector, the mock wallet and the three components under jsdom with axe.
       - name: Test
         run: npm test

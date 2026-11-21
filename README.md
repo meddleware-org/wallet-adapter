@@ -57,10 +57,20 @@ the network selected at the time of the call. The connection and the network are
 Also exported: `rpcUrlFor(network)` (the one table of endpoints) and `MW_NETWORKS`. `useNetwork().setRpcUrl(network, url | null)` points testnet or mainnet at an operator's full node instead of the public one (an https URL with no credentials, query or fragment, checked by `isAllowedRpcOverride`; kept for the page only, never in storage, so a visitor cannot set one); the app's CSP must allow its origin. `setSuiClientOverride(network, client)` (a stub client for
 test and end-to-end builds) is exported from `@meddleware/wallet-adapter/testing` only, not from the production entry.
 
-## Scripts
+## Development
 
-- `npm run type-check` — `vue-tsc --noEmit`
-- `npm test` — vitest (hermetic)
+The package ships its TypeScript source and has no build. The checks, all run in CI on every push (`.github/workflows/node-ci.yml`):
+
+```bash
+npm ci                          # install exactly the lockfile
+npm run type-check              # vue-tsc --noEmit over src/ (the tests are not type-checked: FU-0200)
+npm run lint                    # stylelint, eslint + vuejs-a11y, html-validate
+npm test                        # 83 tests in 7 files, hermetic: fake wallet-standard wallets, the network selector, the mock wallet, the three components under jsdom with axe
+npx --no-install mw-audit-gate  # the dependency gate (from @meddleware/frontend-config)
+```
+
+How to propose a change: [CONTRIBUTING.md](CONTRIBUTING.md). The optional integration test is not part of CI:
+
 - `GRPC_TESTNET=1 npm run test:integration` — reads a real full node: the chain identifiers the executor checks
   (testnet `4c78adac`, mainnet `35834a8a`) and the execution path `buildExecutor` uses (build → sign →
   `executeTransaction` → `waitForTransaction`). A browser wallet cannot run headless, so the execution test

@@ -1,9 +1,19 @@
+/**
+ * Tests for `createToolWallet` (`src/tool-wallet.ts`), the cached views and `rpcUrlFor`, and `setSuiClientOverride`: a tool's wallet is the shared singleton
+ * bound to the selected network (read at call time), the connection is shared with every other caller, feature filtering is per tool and never narrows
+ * another tool's list, and the readonly views are created once.
+ */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { getWallets } from '@mysten/wallet-standard'
 import { createToolWallet } from '../src/tool-wallet.js'
 import { getSuiClient, setSuiClientOverride, useWallet } from '../src/wallet.js'
 import { rpcUrlFor, useNetwork, MW_NETWORKS } from '../src/network.js'
 
+/**
+ * A wallet that looks like a real one to the registry: it needs connect and events, plus whichever features the test wants.
+ * @param name - the wallet's name
+ * @param features - extra wallet-standard features to expose
+ */
 const wallet = (name: string, features: string[]) =>
   ({
     version: '1.0.0',
@@ -19,6 +29,7 @@ const wallet = (name: string, features: string[]) =>
     },
   }) as never
 
+// The binding of the shared singleton to one tool: network read at call time, connection shared, features filtered per tool.
 describe('createToolWallet', () => {
   it('binds the shared singleton to the selected network, read at call time', () => {
     const tool = createToolWallet()
@@ -92,6 +103,7 @@ describe('createToolWallet', () => {
   })
 })
 
+// `useWallet()` and `useNetwork()` run in many components: they must return the same views each time, not build new proxies per call.
 describe('cached views', () => {
   it('useWallet returns the same readonly refs every time', () => {
     const a = useWallet()
@@ -128,6 +140,7 @@ describe('rpcUrlFor', () => {
   })
 })
 
+// The stub hook for test and end-to-end builds: it replaces the client for one network and must not weaken the label rules.
 describe('setSuiClientOverride', () => {
   afterEach(() => {
     setSuiClientOverride('testnet', null)

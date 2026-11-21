@@ -5,7 +5,10 @@
 // Shared across all tool views rendered in the same window — the same module singleton pattern as wallet.ts.
 import { computed, readonly, ref } from 'vue'
 
-/** `http://localhost` or `http://127.0.0.1` (any port/path): the only plain-http endpoint accepted, for local dev. */
+/**
+ * `http://localhost` or `http://127.0.0.1` (any port/path): the only plain-http endpoint accepted, for local dev.
+ * @param url - the candidate endpoint
+ */
 export function isLocalUrl(url: string): boolean {
   try {
     const u = new URL(url)
@@ -13,20 +16,24 @@ export function isLocalUrl(url: string): boolean {
   } catch { return false }
 }
 
+/** A network the adapter can select between. */
 export type MwNetwork = 'testnet' | 'mainnet' | 'localnet'
 
 /** The networks this adapter selects between. */
 export const MW_NETWORKS: readonly MwNetwork[] = ['testnet', 'mainnet', 'localnet']
 
+/** The public full nodes, which serve gRPC-web (the one place these URLs live; apps pass them in, never hardcode them). */
 const DEFAULT_RPC: Record<Exclude<MwNetwork, 'localnet'>, string> = {
   testnet: 'https://fullnode.testnet.sui.io:443',
   mainnet:  'https://fullnode.mainnet.sui.io:443',
 }
+/** The endpoint a local Sui node serves by default. */
 const DEFAULT_LOCALNET_RPC = 'http://127.0.0.1:9000'
 
 /**
  * The gRPC-web endpoint for `network`: the public fullnode for testnet and mainnet, and for localnet the endpoint the visitor set
  * (`setLocalnetRpc`, default `http://127.0.0.1:9000`). For code that needs a client for a network other than the selected one.
+ * @param network - the network
  */
 export function rpcUrlFor(network: MwNetwork): string {
   return network === 'localnet' ? _localnetRpc.value : (_rpcOverrides.value[network] ?? DEFAULT_RPC[network])
@@ -36,6 +43,7 @@ export function rpcUrlFor(network: MwNetwork): string {
  * An operator's full node for testnet or mainnet: an https URL with no credentials, query or fragment (the gRPC-web endpoint, usually
  * an origin such as `https://fullnode.example:443`). Anything else is refused, so a configuration value can never point the wallet at
  * plain http or carry a secret in the URL.
+ * @param url - the configured endpoint
  */
 export function isAllowedRpcOverride(url: string): boolean {
   try {
@@ -45,11 +53,17 @@ export function isAllowedRpcOverride(url: string): boolean {
     return false
   }
 }
+/** The sessionStorage key of the selected network. (The `LS_` prefix is from the localStorage days; the key names are unchanged so the old ones can be removed.) */
 const LS_NET   = 'mw:network'
+/** The sessionStorage key of the localnet endpoint. */
 const LS_LOCAL = 'mw:localnet-rpc'
 
-// Browser storage can be missing or throw (blocked site data, some private modes, sandboxed
-// frames): a read or write failure must never break the app — the selection simply is not kept.
+/**
+ * Read a key from sessionStorage. Browser storage can be missing or throw (blocked site data, some private modes, sandboxed frames):
+ * a read or write failure must never break the app, the selection simply is not kept.
+ * @param key - the storage key
+ * @returns the value, or `null` when absent or unavailable
+ */
 function readStored(key: string): string | null {
   try {
     return typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(key) : null
@@ -58,6 +72,11 @@ function readStored(key: string): string | null {
   }
 }
 
+/**
+ * Write a key to sessionStorage, ignoring failure.
+ * @param key - the storage key
+ * @param value - the value to keep for this tab
+ */
 function writeStored(key: string, value: string): void {
   try {
     if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(key, value)
@@ -77,6 +96,7 @@ function forgetLegacyStorage(): void {
   }
 }
 
+/** Whether a value names a known network (also guards a tampered stored value). */
 function isNetwork(v: unknown): v is MwNetwork {
   return v === 'testnet' || v === 'mainnet' || v === 'localnet'
 }
@@ -92,6 +112,7 @@ function networkFromUrl(): MwNetwork | null {
   }
 }
 
+/** The network to start on: the link's `?network=`, else the tab's stored choice, else testnet. Also removes the old localStorage keys. */
 function loadNetwork(): MwNetwork {
   forgetLegacyStorage()
   const fromUrl = networkFromUrl()
@@ -103,6 +124,7 @@ function loadNetwork(): MwNetwork {
   return isNetwork(stored) ? stored : 'testnet'
 }
 
+/** The localnet endpoint to start with: the stored one if it is still a local http URL, else the default. */
 function loadLocalnetRpc(): string {
   const stored = readStored(LS_LOCAL)
   return (stored && isLocalUrl(stored)) ? stored : DEFAULT_LOCALNET_RPC
@@ -117,6 +139,7 @@ export function networkGeneration(): number {
 }
 
 // ── singleton refs ──────────────────────────────────────────────────────────────────────
+// Underscore-prefixed: the writable refs stay private to this module; callers only ever get the readonly views below.
 const _network    = ref<MwNetwork>(loadNetwork())
 const _localnetRpc = ref<string>(loadLocalnetRpc())
 // Operator overrides of the public full nodes (`setRpcUrl`): kept for this page only, never in storage, so a visitor cannot set one.
@@ -144,6 +167,9 @@ function selectNetwork(n: MwNetwork, keep: boolean): void {
   if (keep) writeStored(LS_NET, n)
 }
 
+/**
+ * The shared network selector: the selected network, its gRPC-web endpoint, the explorer network, and the setters. Module singleton.
+ */
 export function useNetwork() {
   /**
    * Select a network. The person's own choice is kept for the tab; pass `{ keep: false }` when the app selects it for them (an instance
@@ -153,6 +179,11 @@ export function useNetwork() {
     selectNetwork(n, options.keep ?? true)
   }
 
+  /**
+   * Set the localnet endpoint (kept for the tab).
+   * @param url - `http://localhost` or `http://127.0.0.1`
+   * @throws {Error} for any other URL
+   */
   function setLocalnetRpc(url: string): void {
     if (!isLocalUrl(url)) {
       throw new Error(

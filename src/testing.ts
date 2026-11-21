@@ -20,9 +20,12 @@ export { setSuiClientOverride }
 /** The address the mock wallet connects with unless told otherwise. */
 export const MOCK_ADDRESS = `0x${'a'.repeat(64)}`
 
+/** A one-pixel PNG as a Wallet Standard icon (a data URI), so the picker has something to draw. */
 const ICON = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+/** The canned signature and transaction bytes the mock returns when no delegate signs. */
 const CANNED = toBase64(new TextEncoder().encode('mock'))
 
+/** Functions that do the signing for real (or differently), so a test can sign in Node with a funded key that never enters the page. */
 export interface MockDelegate {
   /** Build and sign a transaction. `transactionJson` is `await transaction.toJSON()`. Resolves the base64 bytes and signature. */
   signTransaction?(transactionJson: string, chain: string): Promise<{ bytes: string; signature: string }>
@@ -30,6 +33,7 @@ export interface MockDelegate {
   signPersonalMessage?(message: string): Promise<{ signature: string }>
 }
 
+/** Options for {@link createMockWallet}. */
 export interface MockWalletOptions {
   /** Name in the picker (default `Test Wallet`). */
   name?: string
@@ -45,7 +49,10 @@ export interface MockWalletOptions {
   rejectConnect?: string
 }
 
-/** A wallet-standard wallet. It is not registered: see {@link installMockWallet}. */
+/**
+ * A wallet-standard wallet. It is not registered: see {@link installMockWallet}.
+ * @param options - name, address, chains, features, a signing delegate, or a rejection
+ */
 export function createMockWallet(options: MockWalletOptions = {}): Wallet {
   const { name = 'Test Wallet', address = MOCK_ADDRESS, chains = ['sui:testnet', 'sui:mainnet', 'sui:localnet'], delegate } = options
   const wanted = options.features ?? ['sui:signTransaction', 'sui:signPersonalMessage']
@@ -91,8 +98,11 @@ export function createMockWallet(options: MockWalletOptions = {}): Wallet {
   return { version: '1.0.0', name, icon: ICON, chains, accounts: [], features } as unknown as Wallet
 }
 
+/** A mock wallet that has been registered with wallet-standard, and the controls a test uses. */
 export interface InstalledMockWallet {
+  /** The wallet object. */
   wallet: Wallet
+  /** The account address it connects with. */
   address: string
   /** Register the wallet (done once on install; call again after `unregister`). */
   register(): void
@@ -100,7 +110,10 @@ export interface InstalledMockWallet {
   unregister(): void
 }
 
-/** Create a mock wallet and register it with wallet-standard, so the app discovers it as it would a real extension. */
+/**
+ * Create a mock wallet and register it with wallet-standard, so the app discovers it as it would a real extension.
+ * @param options - see {@link MockWalletOptions}
+ */
 export function installMockWallet(options: MockWalletOptions = {}): InstalledMockWallet {
   const wallet = createMockWallet(options)
   const api = getWallets()
@@ -120,11 +133,16 @@ export function installMockWallet(options: MockWalletOptions = {}): InstalledMoc
   return installed
 }
 
-/** A transaction result in the gRPC client's shape: a success with `digest`, plus any extra fields (`effects`, `objectTypes`, …). */
+/**
+ * A transaction result in the gRPC client's shape: a success with `digest`, plus any extra fields (`effects`, `objectTypes`, …).
+ * @param digest - the transaction digest
+ * @param extra - further fields to include in the result
+ */
 export function okTransaction(digest: string, extra: Record<string, unknown> = {}): unknown {
   return { $kind: 'Transaction', Transaction: { digest, status: { success: true, error: null }, ...extra } }
 }
 
+/** Options for {@link createStubClient}. */
 export interface StubClientOptions {
   /** What `executeTransaction` and `waitForTransaction` resolve (default {@link okTransaction} with a fixed digest). */
   executed?: unknown
@@ -139,6 +157,7 @@ export interface StubClientOptions {
 /**
  * A stand-in for the gRPC client. gRPC-web responses are binary, so they cannot be faked at the fetch layer; the app is given this
  * client instead (see {@link installE2eWallet}). It covers what the apps call: execute, wait, list owned objects and read objects by id.
+ * @param options - what the stub returns
  */
 export function createStubClient(options: StubClientOptions = {}): SuiGrpcClient {
   const executed = options.executed ?? okTransaction(`E2E${'a'.repeat(41)}`)
@@ -157,6 +176,7 @@ export function createStubClient(options: StubClientOptions = {}): SuiGrpcClient
   } as unknown as SuiGrpcClient
 }
 
+/** Options for {@link installE2eWallet}: the mock wallet's, plus the stub client. */
 export interface E2eOptions extends MockWalletOptions {
   /** The stub client for every network (default {@link createStubClient}). Pass `null` to leave the real client. */
   client?: SuiGrpcClient | null
@@ -168,6 +188,7 @@ export interface E2eOptions extends MockWalletOptions {
  * Everything an end-to-end build needs: the mock wallet registered (signing through the test's Node signer when it exposed one), the
  * stub client set for each network, and hooks on `window` for a test to drive (`__e2eAddress`, `__registerMockWallet`,
  * `__unregisterMockWallet`).
+ * @param options - see {@link E2eOptions}
  */
 export function installE2eWallet(options: E2eOptions = {}): InstalledMockWallet {
   const w = window as unknown as Record<string, unknown>

@@ -8,6 +8,7 @@ import { UiButton, UiDialog, UiLiveStatus, UiNotice } from '@meddleware/ui'
 import { useWallet } from './wallet.js'
 import WalletSelector from './WalletSelector.vue'
 
+// Two roots (the trigger and the dialog), so Vue cannot choose where fallthrough attributes go: turn it off and forward them to the trigger.
 defineOptions({ inheritAttrs: false })
 
 const props = withDefaults(defineProps<{
@@ -23,9 +24,15 @@ const props = withDefaults(defineProps<{
   requiredFeatures: undefined,
 })
 
+// The shared wallet state, filtered to the wallets that have the features this tool needs (none given: everything connectable).
 const { wallets, connect, connecting, error } = useWallet(props.requiredFeatures ? { requiredFeatures: props.requiredFeatures } : {})
+// Whether the dialog is open (UiDialog's `v-model:open`).
 const open = ref(false)
 
+/**
+ * The person chose a wallet: connect it and close the dialog on success.
+ * @param w - the chosen wallet
+ */
 async function onSelect(w: Wallet): Promise<void> {
   try {
     await connect(w)
@@ -48,6 +55,7 @@ async function onSelect(w: Wallet): Promise<void> {
 </template>
 
 <style scoped>
+/* The `block` prop: the trigger button fills its container's width (the dialog itself is drawn in the top layer, so it needs no layout rule). */
 .wm-block {
   width: 100%;
 }

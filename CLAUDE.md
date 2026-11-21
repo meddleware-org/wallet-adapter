@@ -138,6 +138,31 @@ The three components are built from `@meddleware/ui` primitives and the design t
 - Do not add a build step or emit `dist/`.
 - Do not make the state non-singleton.
 
+## Commands
+
+```bash
+npm ci && npm run type-check && npm run lint && npm test   # what the `check` CI job runs (plus the dependency gate)
+npx --no-install mw-audit-gate                             # the dependency gate (from @meddleware/frontend-config)
+GRPC_TESTNET=1 npm run test:integration                    # reads a real full node; needs a funded throwaway key (README, Development)
+```
+
+There is no `build` script: the package ships TypeScript source. Release: tag `vX.Y.Z`; `npm-publish.yml` publishes with trusted publishing (PUBLISHING.md in the workspace).
+
+## Gotchas
+
+- **`npm run type-check` does not cover `tests/`** (`tsconfig.json` includes `src/` only), so a type error in a test is found by nobody; FU-0200.
+- **No HTML comment before the root element of a `<template>`**: in a development build it makes the component a fragment and breaks attribute fallthrough
+  (`WalletSelector.vue` had one until the documentation pass). Put template notes in the script as `//` comments.
+- **`.github/audit-gate.mjs` is not here any more**: CI runs `npx --no-install mw-audit-gate` from `@meddleware/frontend-config` (FU-0196).
+- **The integration test needs a funded key** and may be rate-limited on the shared faucet; run it against a local network when in doubt.
+- **A new patch needs only the host (the dashboard) bumped**, but the peer range `>=0.0.22 <0.2.0` in each tool must still admit it.
+
+## Related
+
+- The audit: [`docs/audit/wallet-adapter-audit.md`](docs/audit/wallet-adapter-audit.md).
+- How to propose a change: [`CONTRIBUTING.md`](CONTRIBUTING.md).
+- Consumers: `dashboard-ui` (the host, with the one real dependency), `access-gate-ui`, `sealed-storage-ui`, `walrus-storage-ui`, `token-issuance-ui`, `treasury-ui`, `dao-ui`, `link-in-bio-ui` and `dev-site`; release them after this package.
+
 ## Interoperability
 
 - [docs/INTEROP.md](docs/INTEROP.md): the standards this project speaks, what is planned, where to extend it, and what proves each claim.
