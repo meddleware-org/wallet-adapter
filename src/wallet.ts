@@ -21,7 +21,7 @@ import { SuiGrpcClient } from '@mysten/sui/grpc'
 import { fromBase58, fromBase64 } from '@mysten/sui/utils'
 import type { Transaction } from '@mysten/sui/transactions'
 import type { SuiClientTypes } from '@mysten/sui/client'
-import { isLocalUrl, networkGeneration } from './network.js'
+import { describeUrl, isLocalUrl, networkGeneration } from './network.js'
 
 /** Sui networks the gRPC client accepts as a label. */
 type SuiNetwork = 'mainnet' | 'testnet' | 'devnet' | 'localnet'
@@ -348,7 +348,7 @@ async function assertRpcServesNetwork(client: unknown, network: string, rpcUrl: 
   const { chainIdentifier } = await core.getChainIdentifier()
   const got = shortChainId(chainIdentifier)
   if (got !== want) {
-    throw new Error(`The RPC at ${rpcUrl} serves chain ${got}, not ${network} (${want}). Check the network and RPC URL.`)
+    throw new Error(`The RPC at ${describeUrl(rpcUrl)} serves chain ${got}, not ${network} (${want}). Check the network and RPC URL.`)
   }
   verifiedRpcs.add(key)
 }

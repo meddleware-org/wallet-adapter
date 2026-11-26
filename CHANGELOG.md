@@ -5,6 +5,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+- The errors for a refused or mismatched full-node address no longer repeat the address (it can carry an API key); they name the origin only.
+
 ### Changed
 
 - Documentation: every file is annotated line by line and has a header; added `CONTRIBUTING.md` and `AGENTS.md`; the README has a Development section and CLAUDE.md has Commands, Gotchas and Related.

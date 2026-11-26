@@ -40,6 +40,21 @@ export function rpcUrlFor(network: MwNetwork): string {
 }
 
 /**
+ * A URL as it may appear in an error message or a log line: its origin only (scheme, host and port). A URL can carry a credential (user and password before the host, a token or key in
+ * the path or query), so a message never repeats the whole value; a string that is not a URL is not repeated at all.
+ * @param value - the configured or supplied address
+ */
+export function describeUrl(value: string): string {
+  try {
+    const { origin } = new URL(value)
+    // Schemes without a host (`data:`, `file:`) have the origin `null`.
+    return origin === 'null' ? '(an address with no host)' : origin
+  } catch {
+    return '(not a valid URL)'
+  }
+}
+
+/**
  * An operator's full node for testnet or mainnet: an https URL with no credentials, query or fragment (the gRPC-web endpoint, usually
  * an origin such as `https://fullnode.example:443`). Anything else is refused, so a configuration value can never point the wallet at
  * plain http or carry a secret in the URL.
@@ -206,7 +221,7 @@ export function useNetwork() {
       throw new Error(`setRpcUrl: only testnet and mainnet take a configured full node (got "${String(network)}")`)
     }
     if (url !== null && !isAllowedRpcOverride(url)) {
-      throw new Error(`setRpcUrl: the full node must be an https URL without credentials, query or fragment. Got: ${url}`)
+      throw new Error(`setRpcUrl: the full node must be an https URL without credentials, query or fragment. Got: ${describeUrl(url)}`)
     }
     const before = rpcUrlFor(network)
     const next = { ..._rpcOverrides.value }

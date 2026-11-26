@@ -779,6 +779,13 @@ reach the stub client's shapes, which is where a drift between the stub and the 
 **Impact:** a stub that no longer matches the SDK's types would still pass; the integration test is the only run against the real client and it is manual.
 **Remediation / evidence:** not changed in the documentation pass (the change needs a second tsconfig and the casts in the tests fixed). FU-0200 has the next step. CLAUDE.md's Gotchas and the CI comment say so.
 
+### F20 — A rejected URL was repeated in an error message (a configured URL can carry a credential)
+**Severity:** Low   **Disposition:** RESOLVED (2026-11-26, unreleased)
+**Where:** `src/network.ts` (`setRpcUrl`), `src/wallet.ts` (`assertRpcServesNetwork`).
+**Issue:** `setRpcUrl` refused an address with credentials, a query or a fragment and printed it (`Got: <url>`), the very kind of value it refuses because it can hold a secret; the chain-mismatch error printed the whole RPC address, which often holds an API key.
+**Impact:** an address that holds a credential (user and password before the host, an API key in the path or query) reached an error message, and so a log line, a console or a page, exactly when the address was wrong. Found by the 2026-11-26 scan for this pattern (the same class as walrus-storage-client F30).
+**Remediation / evidence:** Both messages name the node by its origin through the new `describeUrl` (exported from `src/network.ts` for the package's own use); a string that is not a URL is not repeated. A test feeds an address with a user, a password, a path key and a token and requires that none appears in the message.
+
 ### Delta notes
 - `createToolWallet` adds no state: the connection and the network stay module singletons, which is what the shared-wallet invariant (A1) requires; its `signPersonalMessage` reads `useWallet()` at call time.
 - Package contents: `src/` only (`files: ["src"]`); `testing.ts` ships by design (a subpath export, 9 kB of source) and is unreachable from `.`.
@@ -1170,7 +1177,7 @@ All three first-pass questions are answered; none remains open.
   `CONTRIBUTING.md` and `AGENTS.md` added; README Development section; CLAUDE.md Commands, Gotchas and Related sections. Found and fixed **F18** (documentation drift: this audit's version, tarball, test count and
   consumers; thin Development section; an un-annotated copy of the gate; a template comment before a root) and recorded **F19** (type-check skips the tests; FU-0200). Verified live: npm `0.0.25` latest; consumers
   read from their manifests; Dependabot #21 and #17 open and green. Re-run after editing: the same commands, all passing; the diff proven comment-only (compiled output, parsed YAML, `.gitignore` patterns). Recorded
-  outside the repository: FU-0196 applied here (the copy of the gate is gone). Counts: F1 to F19, of which F8, F16 and F17 are Positive: 12 RESOLVED (F1–F7, F9–F11, F15, F18), 3 ACCEPTED-RISK (F12–F14), 1 DEFERRED (F19).
+  outside the repository: FU-0196 applied here (the copy of the gate is gone). Counts: F1 to F20, of which F8, F16 and F17 are Positive: 13 RESOLVED (F1–F7, F9–F11, F15, F18, F20), 3 ACCEPTED-RISK (F12–F14), 1 DEFERRED (F19).
 
 ## Pre-save consistency checklist (this pass)
 

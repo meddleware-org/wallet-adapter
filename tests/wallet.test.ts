@@ -285,6 +285,8 @@ describe('RPC / network binding', () => {
     await w.connect(fakeWallet([{ address: '0xa', chains: ['sui:testnet', 'sui:mainnet'] }]).wallet)
     const wrong = okClient(CHAIN_IDENTIFIER.mainnet) // mainnet's chain behind a testnet label
     await expect(buildExecutor('testnet', 'https://rpc-wrong.example', { client: wrong as never })).rejects.toThrow(/serves chain 35834a8a, not testnet \(4c78adac\)/)
+    // The message names the node by its origin: an RPC address often carries an API key in its path or query, which must not reach a message.
+    await expect(buildExecutor('testnet', 'https://rpc-wrong.example/v1/KEY123?token=abc', { client: wrong as never })).rejects.toThrow(/^The RPC at https:\/\/rpc-wrong\.example serves chain/)
     const right = okClient(CHAIN_IDENTIFIER.testnet)
     await buildExecutor('testnet', 'https://rpc-right.example', { client: right as never })
     await buildExecutor('testnet', 'https://rpc-right.example', { client: right as never })

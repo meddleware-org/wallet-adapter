@@ -187,6 +187,20 @@ describe('setRpcUrl (an operator full node)', () => {
     expect(() => net.setRpcUrl('localnet' as never, 'https://sui.example')).toThrow(/only testnet and mainnet/)
   })
 
+  // A configured URL can carry a credential (the very thing this setter refuses), so the refusal says where it came from, never the whole value.
+  it('does not repeat a refused URL, which may carry a credential, in its message', async () => {
+    const { useNetwork, describeUrl } = await import('../src/network.js')
+    const net = useNetwork()
+    const bad = 'https://user:s3cret@sui.example/path?apikey=KEY123#frag'
+    let message = ''
+    try { net.setRpcUrl('testnet', bad) } catch (e) { message = (e as Error).message }
+    expect(message).toContain('https://sui.example')
+    expect(message).not.toMatch(/s3cret|KEY123|apikey|user:/)
+    // Not a URL at all: not repeated, and an address with no host says so.
+    expect(describeUrl('https://user:s3cret@')).toBe('(not a valid URL)')
+    expect(describeUrl('data:text/plain,s3cret')).toBe('(an address with no host)')
+  })
+
   it('is never written to storage', async () => {
     const store: Record<string, string> = {}
     const s = { getItem: (k: string) => store[k] ?? null, setItem: (k: string, v: string) => { store[k] = v }, removeItem: () => {} }
