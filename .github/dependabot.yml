@@ -11,7 +11,7 @@ updates:
     open-pull-requests-limit: 5
     ignore:
       # Playwright 1.65.x ships a Firefox build that crashes pages when getByRole/getByLabel follow an axe scan
-      # (microsoft/playwright#43967, #44135; fixed in Firefox r1575, not in a 1.65 release). Remove with the 1.66 move.
+      # (microsoft/playwright#43967, #44135; fixed in Firefox r1575, not in a 1.65 release). Remove with the 1.66 move (D147, FU-0152).
       - dependency-name: "@playwright/test"
         versions: ["1.65.x"]
       # TypeScript majors are adopted deliberately, fleet-wide, not by a bot (D52; TypeScript 7 is the next one).
