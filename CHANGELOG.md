@@ -5,6 +5,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.0.26] - 2026-11-27
+
 - The errors for a refused or mismatched full-node address no longer repeat the address (it can carry an API key); they name the origin only.
 
 ### Changed
