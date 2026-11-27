@@ -47,7 +47,7 @@
     "@meddleware/frontend-config": "^0.0.17",
     "@meddleware/ui": "^0.1.47",
     "@mysten/sui": "^2.33.1",
-    "@mysten/wallet-standard": "^0.21.0",
+    "@mysten/wallet-standard": "^0.22.1",
     "@types/node": "~26.6.5",
     "@vitejs/plugin-vue": "^6.0.9",
     "@vue/eslint-config-typescript": "^14.9.0",
