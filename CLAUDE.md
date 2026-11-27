@@ -157,6 +157,10 @@ There is no `build` script: the package ships TypeScript source. Release: tag `v
 - **The integration test needs a funded key** and may be rate-limited on the shared faucet; run it against a local network when in doubt.
 - **A new patch needs only the host (the dashboard) bumped**, but the peer range `>=0.0.22 <0.2.0` in each tool must still admit it.
 
+## Documentation rules (workspace documentation standard, D144)
+
+Every file has a header and every declaration a TSDoc comment (private declarations included); comments say why. In a Vue single-file component the header is a `//` comment just inside `<script>` (never an HTML comment before the root element in `<template>`), template notes are `<!-- -->` inside the root, and style notes are `/* */`. `node scripts/check-docs.mjs --report wallet-adapter` (in the workspace repository) is the gate. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Related
 
 - The audit: [`docs/audit/wallet-adapter-audit.md`](docs/audit/wallet-adapter-audit.md).
